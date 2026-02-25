@@ -7,6 +7,10 @@ const cards = [
   ["Win rate", "57.8%"]
 ] as const;
 
+export function generateStaticParams() {
+  return [{ id: "1" }];
+}
+
 export default async function OverviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
@@ -78,4 +82,3 @@ export default async function OverviewPage({ params }: { params: Promise<{ id: s
     </main>
   );
 }
-

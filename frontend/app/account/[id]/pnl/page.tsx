@@ -1,10 +1,14 @@
+export function generateStaticParams() {
+  return [{ id: "1" }];
+}
+
 export default async function PnlPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
   return (
     <main>
       <h1 className="pageTitle">Dzienny PnL • konto #{id}</h1>
-      <p className="subtitle">MVP: tabela dni -> PnL z możliwością wejścia w dzień i listę trade&apos;ów.</p>
+      <p className="subtitle">MVP: tabela dni do PnL z możliwością wejścia w dzień i listę trade&apos;ów.</p>
       <div className="tableWrap">
         <table>
           <thead>
@@ -40,4 +44,3 @@ export default async function PnlPage({ params }: { params: Promise<{ id: string
     </main>
   );
 }
-

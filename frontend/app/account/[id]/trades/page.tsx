@@ -1,3 +1,7 @@
+export function generateStaticParams() {
+  return [{ id: "1" }];
+}
+
 export default async function TradesPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
@@ -64,4 +68,3 @@ export default async function TradesPage({ params }: { params: Promise<{ id: str
     </main>
   );
 }
-
