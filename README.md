@@ -10,16 +10,18 @@ Monitor your balance, open positions, performance statistics, and P&L calendar �
 - 🇬🇧 **English**
   - [Features](#features)
   - [Requirements](#requirements)
+  - [Getting cTrader Client ID & Secret](#getting-ctrader-client-id--secret) ← *read before installing if you use cTrader*
   - [Installation — step by step](#installation--step-by-step)
-  - [Getting cTrader Client ID & Secret](#getting-ctrader-client-id--secret)
+  - [Troubleshooting](#troubleshooting)
   - [Stopping the server](#stopping-the-server)
   - [Notes](#notes)
 
 - 🇵🇱 **Polski**
   - [Funkcje](#funkcje)
   - [Wymagania](#wymagania)
+  - [Jak uzyskać Client ID i Client Secret dla cTrader?](#jak-uzyska-client-id-i-client-secret-dla-ctrader) ← *przeczytaj przed instalacją gdy używasz cTrader*
   - [Instalacja — krok po kroku](#instalacja--krok-po-kroku)
-  - [Jak uzyskać Client ID i Client Secret dla cTrader?](#jak-uzyska-client-id-i-client-secret-dla-ctrader)
+  - [Rozwiązywanie problemów](#rozwizywanie-problemw)
   - [Zatrzymanie serwera](#zatrzymanie-serwera)
   - [Uwagi](#uwagi)
 
@@ -48,12 +50,38 @@ Monitor your balance, open positions, performance statistics, and P&L calendar �
 - **Windows 10 / 11** (64-bit)
 - **Python 3.11 or newer** — download from [python.org](https://www.python.org/downloads/)  
   ⚠️ During installation tick **"Add Python to PATH"**
-- **MetaTrader 5 terminal** running *(only for MT5 accounts)*
+- **MetaTrader 5 terminal** — running **and logged in** to your account *(only for MT5 accounts)*  
+  ⚠️ Just having MT5 open is not enough — you must be logged in to a trading account
 - Internet connection *(only for cTrader accounts)*
 
 ---
 
+### Getting cTrader Client ID & Secret
+
+> ⚠️ **cTrader users: complete this section before installation.** You will need the Client ID and Client Secret in step 6.
+
+1. Go to [connect.spotware.com](https://connect.spotware.com) and log in (same credentials as your cTrader platform)
+2. Click **Applications** → **New Application**
+3. Fill in any name (e.g. `MyMonitor`), and set the Redirect URI field exactly to:
+   ```
+   http://localhost:8000/auth/ctrader/callback
+   ```
+4. Save — you will see your **Client ID** and **Client Secret**. Copy them somewhere safe.
+
+**Linking your cTrader trading account to the application:**
+
+5. In the Spotware Connect panel, open your newly created application and click the **Accounts** tab
+6. Click **Add Account** and enter your cTrader account number
+   > 💡 Your cTrader account number is the numeric ID visible in the top-left corner of the cTrader desktop platform after logging in (e.g. `12345678`)
+7. You can add multiple accounts — all will be selectable in the dashboard after authorization
+
+> 💡 If you skip steps 5–7, only accounts assigned by your broker will appear after login.
+
+---
+
 ### Installation — step by step
+
+> 💡 **cTrader users:** Before step 6, make sure you've completed [Getting cTrader Client ID & Secret](#getting-ctrader-client-id--secret) above.
 
 1. **Download the project**  
    Click the green **Code** → **Download ZIP** button on GitHub, then extract the folder anywhere (e.g. `C:\MT5Monitor`).
@@ -62,7 +90,7 @@ Monitor your balance, open positions, performance statistics, and P&L calendar �
    Double-click `install.bat`.  
    It will:
    - Check that Python is installed
-   - Create a virtual environment (`.venv`)
+   - Prepare an isolated environment for the app (you don't need to know what this means)
    - Install all required packages
    - Create a default `mt5_server\.env` config file
 
@@ -83,33 +111,33 @@ Monitor your balance, open positions, performance statistics, and P&L calendar �
 6. **Log in**
 
    **MT5 account:**
-   - Make sure MetaTrader 5 is running on your computer
+   - Make sure MetaTrader 5 is running **and logged in** on this computer
    - Enter your account number (Login), password, and server name
+     > 💡 Don't know your server name? In MT5 go to **File → Open Account** — the server name is listed next to your broker on the account list
    - Click **Połącz z MT5**
 
    **cTrader account:**
    - Switch to the **cTrader** tab in the login form
-   - Enter your **Client ID** and **Client Secret** from [Spotware Connect](https://connect.spotware.com)
-   - Click **Autoryzuj** — a Spotware login page will open
-   - Log in with your Spotware ID
-   - Return to the dashboard, select your account, click **Połącz**
+   - Enter the **Client ID** and **Client Secret** you copied from Spotware Connect (see section above)
+   - Click **Autoryzuj** — a Spotware login page will open in your browser
+   - Log in with your Spotware account
+   - Return to the dashboard — your accounts will load automatically. Select one and click **Połącz**
 
 ---
 
-### Getting cTrader Client ID & Secret
+### Troubleshooting
 
-1. Go to [connect.spotware.com](https://connect.spotware.com) and log in
-2. Click **Applications** → **New Application**
-3. Fill in any name, set Redirect URI to: `http://localhost:8000/auth/ctrader/callback`
-4. Copy the **Client ID** and **Client Secret** — paste them in the login form
+**The console window closed immediately after double-clicking `start_server.bat`**  
+Python is likely not installed or was not added to PATH. Re-run `install.bat` and read the error messages carefully.
 
-**Linking your cTrader trading account to the application:**
+**The dashboard doesn't open / browser shows "This site can't be reached"**  
+Make sure `start_server.bat` is still running (the console window must stay open). Type `http://localhost:8000` manually in the browser's address bar — do not use the search bar.
 
-5. In the Spotware Connect panel, go to your application and click the **Accounts** tab
-6. Click **Add Account** and enter your cTrader account number (the numeric ID shown in your cTrader platform)
-7. You can add multiple cTrader accounts — all of them will be available in the account selector after authorization
+**MT5 connection fails**  
+Check that MetaTrader 5 is open **and logged in** on the same computer. Make sure the server name is correct — find it in MT5 under **File → Open Account**.
 
-> 💡 If you skip step 5–6, only accounts that were added by your broker (the cTrader platform operator) will appear after OAuth login.
+**cTrader — no accounts appear after authorization**  
+You need to link your account in Spotware Connect first. See [Getting cTrader Client ID & Secret](#getting-ctrader-client-id--secret) steps 5–7.
 
 ---
 
@@ -122,7 +150,7 @@ Close the `start_server.bat` console window, or press `Ctrl+C` inside it.
 ### Notes
 
 - All data is processed **locally** on your computer — nothing is sent to external servers
-- MT5 requires the MetaTrader 5 terminal to be running on the **same machine** as the server
+- MT5 requires the MetaTrader 5 terminal to be running and **logged in** on the **same machine** as the server
 - cTrader connects via the Spotware cloud API — no terminal needed, but internet is required
 - The investor (read-only) password is recommended for MT5 — the app does not execute trades
 
@@ -153,12 +181,38 @@ Close the `start_server.bat` console window, or press `Ctrl+C` inside it.
 - **Windows 10 / 11** (64-bit)
 - **Python 3.11 lub nowszy** — pobierz ze strony [python.org](https://www.python.org/downloads/)  
   ⚠️ Podczas instalacji zaznacz **"Add Python to PATH"**
-- **Terminal MetaTrader 5** uruchomiony *(tylko dla kont MT5)*
+- **Terminal MetaTrader 5** — uruchomiony i **zalogowany** na konto *(tylko dla kont MT5)*  
+  ⚠️ Sam otwarty MT5 nie wystarczy — musisz być zalogowany na konto tradingowe
 - Połączenie z internetem *(tylko dla kont cTrader)*
 
 ---
 
+### Jak uzyskać Client ID i Client Secret dla cTrader?
+
+> ⚠️ **Użytkownicy cTrader: wykonaj tę sekcję przed instalacją.** Client ID i Client Secret będą potrzebne w kroku 6.
+
+1. Wejdź na [connect.spotware.com](https://connect.spotware.com) i zaloguj się (te same dane co w platformie cTrader)
+2. Kliknij **Applications** → **New Application**
+3. Wpisz dowolną nazwę (np. `MyMonitor`), a w polu Redirect URI wpisz dokładnie:
+   ```
+   http://localhost:8000/auth/ctrader/callback
+   ```
+4. Zapisz — zobaczysz swój **Client ID** i **Client Secret**. Skopiuj je w bezpieczne miejsce.
+
+**Powiązanie konta cTrader z aplikacją:**
+
+5. W panelu Spotware Connect otwórz swoją nowo utworzoną aplikację i kliknij zakładkę **Accounts**
+6. Kliknij **Add Account** i wpisz numer swojego konta cTrader
+   > 💡 Numer konta cTrader widoczny jest w lewym górnym rogu platformy cTrader po zalogowaniu — to ciąg cyfr (np. `12345678`)
+7. Możesz dodać kilka kont — wszystkie będą dostępne w selektorze kont w dashboardzie po autoryzacji
+
+> 💡 Jeśli pominiesz kroki 5–7, po zalogowaniu pojawią się tylko konta przypisane przez brokera.
+
+---
+
 ### Instalacja — krok po kroku
+
+> 💡 **Użytkownicy cTrader:** Przed krokiem 6 upewnij się, że wykonałeś już sekcję [Jak uzyskać Client ID i Client Secret](#jak-uzyska-client-id-i-client-secret-dla-ctrader) powyżej.
 
 1. **Pobierz projekt**  
    Kliknij zielony przycisk **Code** → **Download ZIP** na GitHub, a następnie wypakuj folder w dowolne miejsce (np. `C:\MT5Monitor`).
@@ -167,7 +221,7 @@ Close the `start_server.bat` console window, or press `Ctrl+C` inside it.
    Kliknij dwa razy plik `install.bat`.  
    Instalator automatycznie:
    - Sprawdzi, czy Python jest zainstalowany
-   - Utworzy środowisko wirtualne (`.venv`)
+   - Przygotuje izolowane środowisko dla aplikacji (nie musisz wiedzieć co to znaczy)
    - Zainstaluje wszystkie wymagane pakiety
    - Utworzy domyślny plik konfiguracyjny `mt5_server\.env`
 
@@ -188,33 +242,33 @@ Close the `start_server.bat` console window, or press `Ctrl+C` inside it.
 6. **Zaloguj się**
 
    **Konto MT5:**
-   - Upewnij się, że MetaTrader 5 jest uruchomiony na tym komputerze
+   - Upewnij się, że MetaTrader 5 jest uruchomiony i **zalogowany** na tym komputerze
    - Wpisz numer konta (Login), hasło oraz nazwę serwera
+     > 💡 Nie wiesz jak się nazywa serwer? W MT5 kliknij **Plik → Otwórz konto** — nazwa serwera widoczna jest na liście obok Twojego konta
    - Kliknij **Połącz z MT5**
 
    **Konto cTrader:**
    - Przełącz się na zakładkę **cTrader** w formularzu logowania
-   - Wpisz swój **Client ID** i **Client Secret** ze strony [Spotware Connect](https://connect.spotware.com)
-   - Kliknij **Autoryzuj** — otworzy się strona logowania Spotware
-   - Zaloguj się swoim kontem Spotware ID
-   - Wróć do dashboardu, wybierz konto i kliknij **Połącz**
+   - Wpisz **Client ID** i **Client Secret** skopiowane ze Spotware Connect (patrz sekcja powyżej)
+   - Kliknij **Autoryzuj** — w przeglądarce otworzy się strona logowania Spotware
+   - Zaloguj się swoim kontem Spotware
+   - Wróć do dashboardu — konta załadują się automatycznie. Wybierz konto i kliknij **Połącz**
 
 ---
 
-### Jak uzyskać Client ID i Client Secret dla cTrader?
+### Rozwiązywanie problemów
 
-1. Wejdź na [connect.spotware.com](https://connect.spotware.com) i zaloguj się
-2. Kliknij **Applications** → **New Application**
-3. Wpisz dowolną nazwę, w polu Redirect URI wpisz: `http://localhost:8000/auth/ctrader/callback`
-4. Skopiuj **Client ID** i **Client Secret** — wklej je w formularz logowania
+**Okno konsoli zamknęło się od razu po kliknięciu `start_server.bat`**  
+Najprawdopodobniej Python nie jest zainstalowany lub nie został dodany do PATH. Uruchom ponownie `install.bat` i uważnie przeczytaj komunikaty błędów.
 
-**Powiązanie konta cTrader z aplikacją:**
+**Dashboard się nie otwiera / przeglądarka pokazuje „Nie można połączyć się z witryną"**  
+Upewnij się, że `start_server.bat` nadal działa (okno konsoli musi być otwarte). Wpisz `http://localhost:8000` ręcznie w pasek adresu — nie używaj paska wyszukiwania.
 
-5. W panelu Spotware Connect przejdź do swojej aplikacji i kliknij zakładkę **Accounts**
-6. Kliknij **Add Account** i wpisz numer swojego konta cTrader (numeryczny identyfikator widoczny w platformie cTrader)
-7. Możesz dodać kilka kont — wszystkie będą dostępne w selektorze kont po autoryzacji
+**MT5 nie łączy się**  
+Sprawdź, czy MetaTrader 5 jest otwarty **i zalogowany** na tym samym komputerze. Upewnij się, że wpisujesz poprawną nazwę serwera (widoczna w MT5 pod **Plik → Otwórz konto**).
 
-> 💡 Jeśli pominiesz kroki 5–6, po zalogowaniu przez OAuth pojawią się tylko konta, które zostały przypisane przez Twojego brokera (operatora platformy cTrader).
+**cTrader — po autoryzacji nie pojawiają się żadne konta**  
+Musisz najpierw przypisać konto w panelu Spotware Connect. Zobacz sekcję [Jak uzyskać Client ID i Client Secret](#jak-uzyska-client-id-i-client-secret-dla-ctrader) — szczególnie kroki 5–7.
 
 ---
 
@@ -227,7 +281,7 @@ Zamknij okno konsoli `start_server.bat` lub naciśnij `Ctrl+C` wewnątrz niego.
 ### Uwagi
 
 - Wszystkie dane są przetwarzane **lokalnie** na Twoim komputerze — nic nie jest wysyłane na zewnętrzne serwery
-- MT5 wymaga, aby terminal MetaTrader 5 działał na **tym samym** komputerze co serwer
+- MT5 wymaga, aby terminal MetaTrader 5 działał i był **zalogowany** na **tym samym** komputerze co serwer
 - cTrader łączy się przez chmurę Spotware — terminal nie jest potrzebny, ale wymagany jest internet
 - Zalecane jest hasło inwestora (tylko do odczytu) dla MT5 — aplikacja nie wykonuje transakcji
 
