@@ -103,6 +103,14 @@ Monitor your balance, open positions, performance statistics, and P&L calendar �
 3. Fill in any name, set Redirect URI to: `http://localhost:8000/auth/ctrader/callback`
 4. Copy the **Client ID** and **Client Secret** — paste them in the login form
 
+**Linking your cTrader trading account to the application:**
+
+5. In the Spotware Connect panel, go to your application and click the **Accounts** tab
+6. Click **Add Account** and enter your cTrader account number (the numeric ID shown in your cTrader platform)
+7. You can add multiple cTrader accounts — all of them will be available in the account selector after authorization
+
+> 💡 If you skip step 5–6, only accounts that were added by your broker (the cTrader platform operator) will appear after OAuth login.
+
 ---
 
 ### Stopping the server
@@ -199,6 +207,14 @@ Close the `start_server.bat` console window, or press `Ctrl+C` inside it.
 2. Kliknij **Applications** → **New Application**
 3. Wpisz dowolną nazwę, w polu Redirect URI wpisz: `http://localhost:8000/auth/ctrader/callback`
 4. Skopiuj **Client ID** i **Client Secret** — wklej je w formularz logowania
+
+**Powiązanie konta cTrader z aplikacją:**
+
+5. W panelu Spotware Connect przejdź do swojej aplikacji i kliknij zakładkę **Accounts**
+6. Kliknij **Add Account** i wpisz numer swojego konta cTrader (numeryczny identyfikator widoczny w platformie cTrader)
+7. Możesz dodać kilka kont — wszystkie będą dostępne w selektorze kont po autoryzacji
+
+> 💡 Jeśli pominiesz kroki 5–6, po zalogowaniu przez OAuth pojawią się tylko konta, które zostały przypisane przez Twojego brokera (operatora platformy cTrader).
 
 ---
 
