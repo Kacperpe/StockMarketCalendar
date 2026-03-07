@@ -44,17 +44,26 @@ if exist ".venv\Scripts\python.exe" (
 
 :: ── 3. Zainstaluj pakiety ─────────────────────────────────────────────────────
 echo.
-echo  [3/4] Instalowanie pakietow Python...
+echo  [3/4] Instalowanie pakietow Python (MT5 + FastAPI)...
 echo  (to moze chwile potrwac)
 echo.
 .venv\Scripts\python.exe -m pip install --upgrade pip --quiet
-.venv\Scripts\python.exe -m pip install -r mt5_server\requirements.txt
+.venv\Scripts\python.exe -m pip install -r mt5_server\requirements.txt --ignore-requires-python 2>nul
 if errorlevel 1 (
     echo.
-    echo  [BLAD] Instalacja pakietow nie powiodla sie!
-    echo  Sprawdz polaczenie z internetem i sprobuj ponownie.
-    pause
-    exit /b 1
+    echo  Probuje instalacje bez ctrader-open-api (wymaga kompilatora C++)...
+    .venv\Scripts\python.exe -m pip install MetaTrader5 fastapi "uvicorn[standard]" pydantic-settings pandas python-dotenv slowapi requests
+    if errorlevel 1 (
+        echo  [BLAD] Instalacja podstawowych pakietow nie powiodla sie!
+        pause
+        exit /b 1
+    )
+    echo.
+    echo  [UWAGA] ctrader-open-api nie zostal zainstalowany.
+    echo  Obsluga kont cTrader bedzie niedostepna.
+    echo  Aby ja wlaczyc, zainstaluj Microsoft C++ Build Tools:
+    echo  https://visualstudio.microsoft.com/visual-cpp-build-tools/
+    echo  a nastepnie uruchom: .venv\Scripts\python.exe -m pip install ctrader-open-api
 )
 
 :: ── 4. Utwórz plik .env jeśli nie istnieje ───────────────────────────────────

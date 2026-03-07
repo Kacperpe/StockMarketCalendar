@@ -5,5 +5,8 @@ pydantic-settings
 pandas
 python-dotenv
 slowapi
-ctrader-open-api
 requests
+# ctrader-open-api requires Microsoft C++ Build Tools on Windows
+# Install separately after installing build tools from:
+# https://visualstudio.microsoft.com/visual-cpp-build-tools/
+ctrader-open-api

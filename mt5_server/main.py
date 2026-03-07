@@ -15,8 +15,18 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 import broker_state
-import ct_client
-import ct_oauth
+try:
+    import ct_client
+    import ct_oauth
+    CT_AVAILABLE = True
+except ImportError:
+    ct_client = None  # type: ignore
+    ct_oauth   = None  # type: ignore
+    CT_AVAILABLE = False
+    logging.getLogger(__name__).warning(
+        "ctrader-open-api not installed — cTrader support disabled. "
+        "Install with: pip install ctrader-open-api"
+    )
 from auth import clear_session, create_session, is_authenticated, require_api_key
 from config import settings
 from data_parser import build_full_equity_curve, get_overview_stats
@@ -57,7 +67,8 @@ async def lifespan(app: FastAPI):
     if _poller_task and not _poller_task.done():
         _poller_task.cancel()
     disconnect()
-    ct_client.disconnect()
+    if CT_AVAILABLE and ct_client:
+        ct_client.disconnect()
 
 
 app = FastAPI(title="MT5 Monitor", lifespan=lifespan)
@@ -128,7 +139,8 @@ def auth_logout():
     if broker_state.is_mt5():
         disconnect()
     else:
-        ct_client.disconnect()
+        if CT_AVAILABLE and ct_client:
+            ct_client.disconnect()
     broker_state.set_broker(broker_state.BROKER_MT5)  # reset to default
     return {"ok": True}
 
@@ -147,6 +159,8 @@ class CTConnectRequest(BaseModel):
 @app.post("/auth/ctrader/authorize")
 def ct_authorize(req: CTAuthorizeRequest):
     """Store credentials and return the Spotware OAuth2 authorization URL."""
+    if not CT_AVAILABLE:
+        return {"ok": False, "error": "cTrader support not installed. Run: pip install ctrader-open-api"}
     _ct_oauth_pending["client_id"]     = req.client_id
     _ct_oauth_pending["client_secret"] = req.client_secret
     _ct_oauth_pending["access_token"]  = None
@@ -223,6 +237,8 @@ def ct_accounts_list_pre():
 
 @app.post("/auth/ctrader/connect")
 async def ct_connect(req: CTConnectRequest):
+    if not CT_AVAILABLE:
+        return {"ok": False, "error": "cTrader support not installed. Run: pip install ctrader-open-api"}
     global _poller_task
 
     token = _ct_oauth_pending.get("access_token")
