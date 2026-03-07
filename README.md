@@ -84,7 +84,7 @@ Monitor your balance, open positions, performance statistics, and P&L calendar �
 > 💡 **cTrader users:** Before step 6, make sure you've completed [Getting cTrader Client ID & Secret](#getting-ctrader-client-id--secret) above.
 
 1. **Download the project**  
-   Click the green **Code** → **Download ZIP** button on GitHub, then extract the folder anywhere (e.g. `C:\MT5Monitor`).
+   Go to the [project page on GitHub](https://github.com/Kacperpe/StockMarketCalendar), click the green **Code** → **Download ZIP** button, then extract the folder anywhere (e.g. `C:\MT5Monitor`).
 
 2. **Run the installer**  
    Double-click `install.bat`.  
@@ -215,7 +215,7 @@ Close the `start_server.bat` console window, or press `Ctrl+C` inside it.
 > 💡 **Użytkownicy cTrader:** Przed krokiem 6 upewnij się, że wykonałeś już sekcję [Jak uzyskać Client ID i Client Secret](#jak-uzyska-client-id-i-client-secret-dla-ctrader) powyżej.
 
 1. **Pobierz projekt**  
-   Kliknij zielony przycisk **Code** → **Download ZIP** na GitHub, a następnie wypakuj folder w dowolne miejsce (np. `C:\MT5Monitor`).
+   Wejdź na [stronę projektu na GitHub](https://github.com/Kacperpe/StockMarketCalendar), kliknij zielony przycisk **Code** → **Download ZIP**, a następnie wypakuj folder w dowolne miejsce (np. `C:\MT5Monitor`).
 
 2. **Uruchom instalator**  
    Kliknij dwa razy plik `install.bat`.  
