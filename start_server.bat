@@ -2,9 +2,20 @@
 title MT5 Monitor — Serwer
 cd /d "%~dp0"
 
-:: Pobierz lokalny adres IP (Wi-Fi lub Ethernet)
-for /f "tokens=2 delims=:" %%A in ('powershell -NoProfile -Command "(Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.PrefixOrigin -eq 'Dhcp' -or $_.PrefixOrigin -eq 'Manual' } | Sort-Object PrefixLength | Select-Object -First 1).IPAddress"') do set LOCAL_IP=%%A
-set LOCAL_IP=%LOCAL_IP: =%
+:: Sprawdz czy .venv istnieje
+if not exist ".venv\Scripts\python.exe" (
+    echo.
+    echo  BLAD: Nie znaleziono srodowiska Python!
+    echo  Uruchom najpierw plik install.bat, a dopiero potem start_server.bat
+    echo.
+    pause
+    exit /b 1
+)
+
+:: Pobierz lokalny adres IP
+powershell -NoProfile -Command "(Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -notlike '127.*' -and $_.IPAddress -notlike '169.*' } | Sort-Object PrefixLength | Select-Object -First 1).IPAddress | Out-File -Encoding ascii '%TEMP%\mt5monitor_ip.txt'" 2>nul
+set /p LOCAL_IP=<%TEMP%\mt5monitor_ip.txt
+del %TEMP%\mt5monitor_ip.txt 2>nul
 if "%LOCAL_IP%"=="" set LOCAL_IP=localhost
 
 echo.
