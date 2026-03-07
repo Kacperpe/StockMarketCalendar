@@ -1,0 +1,7 @@
+MetaTrader5
+fastapi
+uvicorn[standard]
+pydantic-settings
+pandas
+python-dotenv
+slowapi

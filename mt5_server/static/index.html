@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MT5 Monitor</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+
+  <!-- ── Login ─────────────────────────────────────────────── -->
+  <div id="login-screen" class="screen">
+    <div class="login-card">
+      <div class="login-logo">📈 MT5 Monitor</div>
+      <p class="login-sub">Podaj dane konta MT5 aby się połączyć</p>
+
+      <input id="inp-login" type="number" placeholder="Numer konta (Login)" autocomplete="off">
+
+      <div class="key-wrap">
+        <input id="inp-password" type="password" placeholder="Hasło (Investor / Readonly)" autocomplete="off">
+        <button id="show-pass-btn" type="button" class="show-key">👁</button>
+      </div>
+
+      <input id="inp-server" type="text" placeholder="Serwer (np. FTMO-Demo)" autocomplete="off">
+
+      <button id="connect-btn">Połącz z MT5</button>
+      <p id="login-error" class="error hidden"></p>
+    </div>
+  </div>
+
+  <!-- ── Dashboard ─────────────────────────────────────────── -->
+  <div id="dashboard" class="screen hidden">
+
+    <header>
+      <div class="header-left">
+        <span class="logo">📈 MT5 Monitor</span>
+      </div>
+      <div class="header-center">
+        <span id="account-name">—</span>
+        <span id="account-server" class="muted-sm">—</span>
+      </div>
+      <div class="header-right">
+        <span id="ws-status" class="dot disconnected" title="Rozłączony">●</span>
+        <span id="last-update" class="muted-sm">—</span>
+        <button id="logout-btn" class="btn-ghost">Wyloguj</button>
+        <button id="hamburger-btn" class="hamburger-btn" title="Ustawienia">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </header>
+
+    <!-- ── Menu drawer ───────────────────────────────────────── -->
+    <div id="menu-overlay" class="menu-overlay hidden"></div>
+    <div id="menu-drawer" class="menu-drawer hidden">
+      <div class="menu-drawer-header">
+        <span>Ustawienia</span>
+        <button id="menu-close-btn" class="menu-close-btn">✕</button>
+      </div>
+
+      <div class="menu-section">
+        <div class="menu-section-title">🎨 Motyw</div>
+        <div class="theme-btns">
+          <button class="theme-btn" data-theme="dark">⬛ Ciemny</button>
+          <button class="theme-btn" data-theme="light">⬜ Jasny</button>
+          <button class="theme-btn" data-theme="custom">🎨 Własny</button>
+        </div>
+        <div id="custom-theme-row" class="custom-theme-row hidden">
+          <label>Tło<input type="color" id="c-bg" value="#0d1117"></label>
+          <label>Powierzchnia<input type="color" id="c-surface" value="#161b22"></label>
+          <label>Tekst<input type="color" id="c-text" value="#e6edf3"></label>
+          <label>Akcent<input type="color" id="c-accent" value="#388bfd"></label>
+          <label>Zielony<input type="color" id="c-green" value="#3fb950"></label>
+          <label>Czerwony<input type="color" id="c-red" value="#f85149"></label>
+        </div>
+      </div>
+
+      <div class="menu-divider"></div>
+
+      <div class="menu-section">
+        <div class="menu-section-title">📐 Widoczność paneli</div>
+        <label class="panel-toggle-row">
+          <input type="checkbox" id="tog-overview" checked>
+          <span>📊 Statystyki konta &amp; wykres</span>
+        </label>
+        <label class="panel-toggle-row">
+          <input type="checkbox" id="tog-positions" checked>
+          <span>📋 Otwarte pozycje</span>
+        </label>
+        <label class="panel-toggle-row">
+          <input type="checkbox" id="tog-stats" checked>
+          <span>📈 Statystyki transakcji</span>
+        </label>
+        <label class="panel-toggle-row">
+          <input type="checkbox" id="tog-calendar" checked>
+          <span>📅 Kalendarz P&amp;L</span>
+        </label>
+      </div>
+    </div>
+
+    <main>
+
+      <!-- Statystyki konta + wykres -->
+      <section id="panel-overview">
+      <!-- Górne karty metryczne -->
+      <div class="top-cards">
+        <div class="card">
+          <div class="card-label">Equity</div>
+          <div class="card-value" id="top-equity">—</div>
+        </div>
+        <div class="card card-highlight">
+          <div class="card-label">Growth</div>
+          <div class="card-value" id="top-growth">—</div>
+        </div>
+        <div class="card">
+          <div class="card-label">Deposit</div>
+          <div class="card-value positive" id="top-deposit">—</div>
+        </div>
+        <div class="card">
+          <div class="card-label">Withdrawals</div>
+          <div class="card-value" id="top-withdrawals">—</div>
+        </div>
+      </div>
+
+      <!-- Sidebar + chart -->
+      <div class="main-layout">
+
+        <!-- Lewa kolumna ze statystykami -->
+        <aside class="sidebar">
+          <div class="sidebar-title">Statystyki konta</div>
+
+          <div class="stat-row">
+            <span class="stat-label">Całkowity Gain</span>
+            <span class="stat-value" id="s-gain">—</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Śr. dzienny</span>
+            <span class="stat-value" id="s-daily">—</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Śr. miesięczny</span>
+            <span class="stat-value" id="s-monthly">—</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Max Drawdown</span>
+            <span class="stat-value negative" id="s-dd">—</span>
+          </div>
+
+          <div class="stat-divider"></div>
+
+          <div class="stat-row">
+            <span class="stat-label">Balance</span>
+            <span class="stat-value" id="s-balance">—</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Equity</span>
+            <span class="stat-value" id="s-equity-sb">—</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Total Profit</span>
+            <span class="stat-value" id="s-profit">—</span>
+          </div>
+        </aside>
+
+        <!-- Wykres equity -->
+        <section class="chart-section panel">
+          <div class="panel-header">
+            <h2>Equity Curve &nbsp;<span class="muted-sm">pełna historia od pierwszej transakcji</span></h2>
+            <span id="chart-pts" class="muted-sm">Ładowanie…</span>
+          </div>
+          <div class="chart-wrap-tall">
+            <canvas id="equity-chart"></canvas>
+          </div>
+        </section>
+
+      </div>
+      </section><!-- /panel-overview -->
+
+      <!-- Otwarte pozycje -->
+      <section id="panel-positions" class="panel positions-panel">
+        <div class="panel-header">
+          <h2>Otwarte pozycje <span id="positions-count" class="badge">0</span></h2>
+          <span id="floating-pnl" class="muted-sm">Floating P&amp;L: —</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Ticket</th>
+                <th>Symbol</th>
+                <th>Typ</th>
+                <th>Lot</th>
+                <th>Cena otwarcia</th>
+                <th>Cena bieżąca</th>
+                <th>SL</th>
+                <th>TP</th>
+                <th>P&amp;L</th>
+                <th>Swap</th>
+                <th>P&amp;L netto</th>
+                <th>Czas otwarcia</th>
+              </tr>
+            </thead>
+            <tbody id="positions-tbody">
+              <tr><td colspan="12" class="empty">Brak otwartych pozycji</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Statystyki (Myfxbook-style) -->
+      <section id="panel-stats" class="panel stats-panel">
+        <div class="panel-header">
+          <h2>Statystyki transakcji</h2>
+          <div class="panel-actions">
+            <select id="stats-days">
+              <option value="7">7 dni</option>
+              <option value="30" selected>30 dni</option>
+              <option value="90">90 dni</option>
+              <option value="180">180 dni</option>
+              <option value="365">365 dni</option>
+              <option value="0">Cała historia</option>
+            </select>
+            <button id="stats-load-btn" class="btn-primary">Załaduj</button>
+          </div>
+        </div>
+        <div id="stats-content">
+          <p class="empty">Wybierz okres i kliknij „Załaduj" aby wyświetlić statystyki.</p>
+        </div>
+      </section>
+
+      <!-- Kalendarz dzienny ─────────────────────────────────────────────── -->
+      <section id="panel-calendar" class="panel calendar-panel">
+        <div class="panel-header">
+          <h2>Kalendarz P&amp;L</h2>
+          <div class="panel-actions">
+            <button id="cal-prev-btn" class="btn-secondary">&#8592; Poprzedni</button>
+            <button id="cal-today-btn" class="btn-secondary btn-today">Dziś</button>
+            <span id="cal-month-label" class="cal-month-title">—</span>
+            <button id="cal-next-btn" class="btn-secondary">Następny &#8594;</button>
+          </div>
+        </div>
+        <div id="cal-content">
+          <p class="empty">Ładowanie kalendarza…</p>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js" defer></script>
+  <script src="/static/app.js" defer></script>
+</body>
+</html>
+
+
