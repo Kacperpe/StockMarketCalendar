@@ -5,7 +5,29 @@ Monitor your balance, open positions, performance statistics, and P&L calendar �
 
 ---
 
+## ⬇️ Pobierz / Download
+
+**🇵🇱 Opcja A — kliknij i pobierz:**  
+[📦 Pobierz StockMarketCalendar.zip](https://github.com/Kacperpe/StockMarketCalendar/archive/refs/heads/main.zip)
+
+**🇵🇱 Opcja B — wklej w PowerShell (Windows):**
+```powershell
+powershell -Command "Invoke-WebRequest -Uri 'https://github.com/Kacperpe/StockMarketCalendar/archive/refs/heads/main.zip' -OutFile 'StockMarketCalendar.zip'; Expand-Archive 'StockMarketCalendar.zip' -DestinationPath 'C:\StockMarketCalendar'; Remove-Item 'StockMarketCalendar.zip'"
+```
+
+**🇬🇧 Option A — click to download:**  
+[📦 Download StockMarketCalendar.zip](https://github.com/Kacperpe/StockMarketCalendar/archive/refs/heads/main.zip)
+
+**🇬🇧 Option B — paste in PowerShell (Windows):**
+```powershell
+powershell -Command "Invoke-WebRequest -Uri 'https://github.com/Kacperpe/StockMarketCalendar/archive/refs/heads/main.zip' -OutFile 'StockMarketCalendar.zip'; Expand-Archive 'StockMarketCalendar.zip' -DestinationPath 'C:\StockMarketCalendar'; Remove-Item 'StockMarketCalendar.zip'"
+```
+
+---
+
 ## 📋 Table of Contents / Spis treści
+
+- [⬇️ Pobierz / Download](#️-pobierz--download)
 
 - 🇬🇧 **English**
   - [Features](#features)
