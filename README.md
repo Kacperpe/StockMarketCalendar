@@ -5,6 +5,26 @@ Monitor your balance, open positions, performance statistics, and P&L calendar �
 
 ---
 
+## 📋 Table of Contents / Spis treści
+
+- 🇬🇧 **English**
+  - [Features](#features)
+  - [Requirements](#requirements)
+  - [Installation — step by step](#installation--step-by-step)
+  - [Getting cTrader Client ID & Secret](#getting-ctrader-client-id--secret)
+  - [Stopping the server](#stopping-the-server)
+  - [Notes](#notes)
+
+- 🇵🇱 **Polski**
+  - [Funkcje](#funkcje)
+  - [Wymagania](#wymagania)
+  - [Instalacja — krok po kroku](#instalacja--krok-po-kroku)
+  - [Jak uzyskać Client ID i Client Secret dla cTrader?](#jak-uzyska-client-id-i-client-secret-dla-ctrader)
+  - [Zatrzymanie serwera](#zatrzymanie-serwera)
+  - [Uwagi](#uwagi)
+
+---
+
 ## 🇬🇧 English
 
 ### Features
