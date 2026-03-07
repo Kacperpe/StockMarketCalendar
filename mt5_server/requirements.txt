@@ -5,3 +5,5 @@ pydantic-settings
 pandas
 python-dotenv
 slowapi
+ctrader-open-api
+requests

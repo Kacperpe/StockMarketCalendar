@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>MT5 Monitor</title>
+  <title>Trading Monitor</title>
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
@@ -11,19 +11,43 @@
   <!-- ── Login ─────────────────────────────────────────────── -->
   <div id="login-screen" class="screen">
     <div class="login-card">
-      <div class="login-logo">📈 MT5 Monitor</div>
-      <p class="login-sub">Podaj dane konta MT5 aby się połączyć</p>
+      <div class="login-logo">📈 Trading Monitor</div>
 
-      <input id="inp-login" type="number" placeholder="Numer konta (Login)" autocomplete="off">
-
-      <div class="key-wrap">
-        <input id="inp-password" type="password" placeholder="Hasło (Investor / Readonly)" autocomplete="off">
-        <button id="show-pass-btn" type="button" class="show-key">👁</button>
+      <!-- Broker tabs -->
+      <div class="broker-tabs">
+        <button class="broker-tab active" data-broker="mt5">📊 MT5</button>
+        <button class="broker-tab" data-broker="ctrader">📈 cTrader</button>
       </div>
 
-      <input id="inp-server" type="text" placeholder="Serwer (np. FTMO-Demo)" autocomplete="off">
+      <!-- MT5 form -->
+      <div id="form-mt5">
+        <p class="login-sub">Podaj dane konta MT5 aby się połączyć</p>
+        <input id="inp-login" type="number" placeholder="Numer konta (Login)" autocomplete="off">
+        <div class="key-wrap">
+          <input id="inp-password" type="password" placeholder="Hasło (Investor / Readonly)" autocomplete="off">
+          <button id="show-pass-btn" type="button" class="show-key">👁</button>
+        </div>
+        <input id="inp-server" type="text" placeholder="Serwer (np. FTMO-Demo)" autocomplete="off">
+        <button id="connect-btn">Połącz z MT5</button>
+      </div>
 
-      <button id="connect-btn">Połącz z MT5</button>
+      <!-- cTrader form -->
+      <div id="form-ct" class="hidden">
+        <p class="login-sub">Autoryzuj przez Spotware OAuth2</p>
+        <input id="ct-client-id" type="text" placeholder="Client ID" autocomplete="off">
+        <div class="key-wrap">
+          <input id="ct-client-secret" type="password" placeholder="Client Secret" autocomplete="off">
+          <button id="ct-show-secret" type="button" class="show-key">👁</button>
+        </div>
+        <button id="ct-auth-btn">Autoryzuj przez Spotware</button>
+
+        <div id="ct-account-row" class="hidden">
+          <p class="login-sub" style="margin-top:12px">✅ Wybierz konto:</p>
+          <select id="ct-account-list" class="ct-account-select"></select>
+          <button id="ct-connect-btn">Połącz z cTrader</button>
+        </div>
+      </div>
+
       <p id="login-error" class="error hidden"></p>
     </div>
   </div>

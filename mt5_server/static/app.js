@@ -4,6 +4,7 @@ let ws             = null;
 let wsReconnectTimer  = null;
 let equityChart       = null;
 let overviewInterval  = null;
+let activeBroker      = 'mt5';   // 'mt5' | 'ctrader'
 
 /* ── Init ────────────────────────────────────────────────────────────────── */
 window.addEventListener('DOMContentLoaded', async () => {
@@ -20,6 +21,26 @@ window.addEventListener('DOMContentLoaded', async () => {
   );
   document.getElementById('logout-btn').addEventListener('click', handleLogout);
   document.getElementById('stats-load-btn').addEventListener('click', loadFullStats);
+
+  // ── Broker tab switching ────────────────────────────────────────────────
+  document.querySelectorAll('.broker-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.broker-tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      activeBroker = btn.dataset.broker;
+      document.getElementById('form-mt5').classList.toggle('hidden', activeBroker !== 'mt5');
+      document.getElementById('form-ct').classList.toggle('hidden',  activeBroker !== 'ctrader');
+      document.getElementById('login-error').classList.add('hidden');
+    });
+  });
+
+  // ── cTrader form wiring ─────────────────────────────────────────────────
+  document.getElementById('ct-show-secret').addEventListener('click', () => {
+    const inp = document.getElementById('ct-client-secret');
+    inp.type = inp.type === 'password' ? 'text' : 'password';
+  });
+  document.getElementById('ct-auth-btn').addEventListener('click', handleCtAuth);
+  document.getElementById('ct-connect-btn').addEventListener('click', handleCtConnect);
 
   const stored = sessionStorage.getItem('mt5_token');
   if (stored) {
@@ -84,9 +105,108 @@ async function handleLogout() {
   try { await fetch('/auth/logout', { method: 'POST', headers: { 'X-API-Key': apiKey } }); } catch {}
   sessionStorage.removeItem('mt5_token');
   apiKey = null;
+  activeBroker = 'mt5';
   disconnectWs();
   clearInterval(overviewInterval);
   showLogin();
+}
+
+/* ── cTrader auth ─────────────────────────────────────────────────────── */
+async function handleCtAuth() {
+  const clientId     = document.getElementById('ct-client-id').value.trim();
+  const clientSecret = document.getElementById('ct-client-secret').value.trim();
+  const btn          = document.getElementById('ct-auth-btn');
+
+  if (!clientId || !clientSecret) { showLoginError('Wpisz Client ID i Client Secret.'); return; }
+
+  btn.textContent = 'Przekierowywanie…';
+  btn.disabled    = true;
+  document.getElementById('login-error').classList.add('hidden');
+
+  try {
+    const res  = await fetch('/auth/ctrader/authorize', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ client_id: clientId, client_secret: clientSecret }),
+    });
+    const data = await res.json();
+    if (!data.ok) { showLoginError(data.error || 'Błąd inicjalizacji OAuth'); return; }
+
+    // Open Spotware login popup
+    const popup = window.open(data.auth_url, 'spotware_auth',
+      'width=520,height=640,menubar=no,toolbar=no,location=yes,status=no');
+
+    btn.textContent = 'Czekam na autoryzację…';
+
+    // Poll until access token is available
+    const poll = setInterval(async () => {
+      try {
+        const sr = await fetch('/auth/ctrader/token-status');
+        const sd = await sr.json();
+        if (sd.ready) {
+          clearInterval(poll);
+          if (popup && !popup.closed) popup.close();
+          await loadCtAccounts();
+        }
+      } catch { /* keep polling */ }
+    }, 1500);
+
+  } catch {
+    showLoginError('Błąd połączenia z serwerem.');
+  } finally {
+    btn.textContent = 'Autoryzuj przez Spotware';
+    btn.disabled    = false;
+  }
+}
+
+async function loadCtAccounts() {
+  try {
+    const res   = await fetch('/auth/ctrader/accounts-pre');
+    const data  = await res.json();
+    if (!data.ok || !data.accounts?.length) {
+      showLoginError(data.error || 'Brak kont na tym tokenie.');
+      return;
+    }
+    const select = document.getElementById('ct-account-list');
+    select.innerHTML = data.accounts.map(a =>
+      `<option value="${a.id}">${a.broker} — ${a.id} (${a.is_live ? 'LIVE' : 'DEMO'})</option>`
+    ).join('');
+    document.getElementById('ct-account-row').classList.remove('hidden');
+  } catch {
+    showLoginError('Nie można załadować listy kont.');
+  }
+}
+
+async function handleCtConnect() {
+  const accountId = parseInt(document.getElementById('ct-account-list').value);
+  const btn       = document.getElementById('ct-connect-btn');
+  if (!accountId) return;
+
+  btn.textContent = 'Łączenie…';
+  btn.disabled    = true;
+  document.getElementById('login-error').classList.add('hidden');
+
+  try {
+    const res  = await fetch('/auth/ctrader/connect', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ account_id: accountId }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      apiKey       = data.token;
+      activeBroker = 'ctrader';
+      sessionStorage.setItem('mt5_token', apiKey);
+      showDashboard(data);
+    } else {
+      showLoginError(data.error || 'Błąd połączenia z cTrader.');
+    }
+  } catch {
+    showLoginError('Nie można połączyć z serwerem.');
+  } finally {
+    btn.textContent = 'Połącz z cTrader';
+    btn.disabled    = false;
+  }
 }
 
 function showLoginError(msg) {

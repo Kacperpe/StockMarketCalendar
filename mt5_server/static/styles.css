@@ -115,6 +115,46 @@ body {
 .login-card button:hover    { opacity: .88; }
 .login-card button:disabled { opacity: .5; cursor: default; }
 
+/* ── Broker tabs ─────────────────────────────────────────────────────────── */
+.broker-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.broker-tab {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 10px;
+  cursor: pointer;
+  transition: all .15s;
+  width: auto !important;
+  margin-top: 0 !important;
+}
+.broker-tab:hover  { color: var(--text); border-color: var(--muted); }
+.broker-tab.active {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #fff;
+}
+
+/* cTrader account dropdown */
+.ct-account-select {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  padding: 10px 14px;
+  font-size: 14px;
+  outline: none;
+  margin-bottom: 4px;
+}
+
 /* ── Header ──────────────────────────────────────────────────────────────── */
 header {
   position: sticky; top: 0; z-index: 20;
