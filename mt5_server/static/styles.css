@@ -676,3 +676,88 @@ select:focus { border-color: var(--blue); }
   .cal-week-cell { padding: 6px 8px; }
   .cal-pnl { font-size: 12px; }
 }
+
+/* ── Mobile ──────────────────────────────────────────────────────────────── */
+@media (max-width: 600px) {
+
+  /* Login */
+  .login-card {
+    width: 100%;
+    margin: 0 16px;
+    padding: 28px 20px;
+    border-radius: 12px;
+  }
+  #login-screen { align-items: flex-start; padding-top: 40px; }
+
+  /* Header */
+  header {
+    padding: 10px 14px;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .logo { font-size: 13px; }
+  .header-center { display: none; }
+  .header-right { gap: 6px; }
+  .btn-ghost { padding: 5px 8px; font-size: 11px; }
+  #status-dot { font-size: 12px; }
+
+  /* Main content */
+  main { padding: 12px 12px; }
+
+  /* Top cards — 2 per row */
+  .top-cards { grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 12px; }
+  .card       { padding: 12px 14px; }
+  .card-value { font-size: 16px; }
+  .card-label { font-size: 10px; }
+
+  /* sidebar/chart stack */
+  .main-layout { gap: 8px; margin-bottom: 12px; }
+
+  /* Equity chart shorter on mobile */
+  .chart-wrap-tall { height: 220px; padding: 12px 14px 14px; }
+
+  /* Panel headers */
+  .panel-header { padding: 10px 14px; gap: 8px; }
+  .panel-header h2 { font-size: 13px; }
+  .panel-actions { gap: 6px; }
+
+  /* Table — allow horizontal scroll, smaller text */
+  td, th { padding: 8px 10px; font-size: 12px; }
+
+  /* Stats big numbers — 2 per row */
+  .stats-top-row { grid-template-columns: repeat(2, 1fr); }
+  .stat-big-value { font-size: 18px; }
+  .stat-big       { padding: 14px 10px; }
+
+  /* Stats section paddings */
+  .stats-section { padding: 12px; gap: 14px; }
+
+  /* Sidebar stat rows */
+  .sidebar-title { padding: 10px 12px 8px; }
+  .stat-row { padding: 8px 12px; }
+  .stat-label { font-size: 11px; }
+  .stat-value { font-size: 12px; }
+
+  /* Calendar — hide week summary column, shrink cells */
+  .cal-header-row,
+  .cal-row { grid-template-columns: repeat(7, 1fr); gap: 2px; }
+  .cal-week-cell { display: none; }
+  .cal-cell { min-height: 52px; padding: 4px 5px; gap: 2px; }
+  .cal-pnl { font-size: 11px; margin-top: 2px; }
+  .cal-meta { font-size: 9px; }
+  .cal-day-num { font-size: 10px; }
+  .cal-grid { gap: 2px; }
+
+  /* Menu drawer full-width on phone */
+  .menu-drawer { width: 100%; border-left: none; }
+
+  /* Period selector */
+  select { font-size: 12px; padding: 4px 8px; }
+}
+
+@media (max-width: 380px) {
+  /* Very small phones — simplify further */
+  .top-cards { grid-template-columns: 1fr 1fr; }
+  .card-value { font-size: 14px; }
+  .login-card { padding: 22px 16px; }
+}
