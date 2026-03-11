@@ -7,10 +7,13 @@ Monitor your balance, open positions, performance statistics, and P&L calendar �
 
 ## ⬇️ Download
 
-**Option A — click to download:**  
+**Latest release (recommended):**  
+[📦 Download from Releases](https://github.com/Kacperpe/StockMarketCalendar/releases/latest)
+
+**Or download the latest code as ZIP directly:**  
 [📦 Download StockMarketCalendar.zip](https://github.com/Kacperpe/StockMarketCalendar/archive/refs/heads/main.zip)
 
-**Option B — paste in PowerShell (Windows):**
+**Option — paste in PowerShell (Windows):**
 ```powershell
 powershell -Command "Invoke-WebRequest -Uri 'https://github.com/Kacperpe/StockMarketCalendar/archive/refs/heads/main.zip' -OutFile 'StockMarketCalendar.zip'; Expand-Archive 'StockMarketCalendar.zip' -DestinationPath 'C:\StockMarketCalendar'; Remove-Item 'StockMarketCalendar.zip'"
 ```
@@ -320,6 +323,28 @@ Zamknij okno konsoli `start_server.bat` lub naciśnij `Ctrl+C` wewnątrz niego.
 - MT5 wymaga, aby terminal MetaTrader 5 działał i był **zalogowany** na **tym samym** komputerze co serwer
 - cTrader łączy się przez chmurę Spotware — terminal nie jest potrzebny, ale wymagany jest internet
 - Zalecane jest hasło inwestora (tylko do odczytu) dla MT5 — aplikacja nie wykonuje transakcji
+
+---
+
+## 🏷️ Creating a Release
+
+Releases are created automatically by a GitHub Actions workflow whenever a version tag is pushed.
+
+**Steps to publish a new release:**
+
+1. Update the `VERSION` file in the repository root with the new version number (e.g. `1.2.0`).
+2. Commit and push the change to `main`.
+3. Create and push a matching Git tag:
+   ```bash
+   git tag v1.2.0
+   git push origin v1.2.0
+   ```
+4. The workflow (`.github/workflows/release.yml`) will automatically:
+   - Build a ZIP archive of the project
+   - Create a GitHub Release named `v1.2.0`
+   - Attach the ZIP as a downloadable release asset
+
+Tags must follow the `vMAJOR.MINOR.PATCH` format (e.g. `v1.0.0`, `v1.2.3`).
 
 ---
 
