@@ -115,10 +115,24 @@ app.add_middleware(
 _static = Path(__file__).resolve().parent / "static"
 app.mount("/static", StaticFiles(directory=_static), name="static")
 
+_VERSION_FILE = Path(__file__).resolve().parent.parent / "VERSION"
+
+
+def _read_version() -> str:
+    try:
+        return _VERSION_FILE.read_text(encoding="utf-8").strip()
+    except OSError:
+        return "unknown"
+
 
 @app.get("/")
 def root():
     return FileResponse(_static / "index.html")
+
+
+@app.get("/version")
+def version_endpoint():
+    return {"version": _read_version()}
 
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
