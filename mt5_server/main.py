@@ -28,8 +28,9 @@ def _load_ctrader_support():
         missing = ", ".join(missing_runtime)
         return None, None, (
             "cTrader support is not installed. Missing Python packages: "
-            f"{missing}. Install Microsoft Visual C++ Build Tools first, then run: "
-            "pip install ctrader-open-api"
+            f"{missing}. Install cTrader dependencies and restart the server: "
+            "pip install -r mt5_server/requirements-ctrader.txt. "
+            "MT5 mode works without cTrader packages."
         )
 
     try:

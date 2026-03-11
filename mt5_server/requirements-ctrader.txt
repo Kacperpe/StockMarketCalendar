@@ -1,0 +1,6 @@
+# Optional dependencies required only for cTrader support
+ctrader-open-api==0.9.2
+Twisted==24.3.0
+pyOpenSSL==24.1.0
+protobuf==3.20.1
+inputimeout==1.0.4

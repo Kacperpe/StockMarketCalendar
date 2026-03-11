@@ -104,7 +104,7 @@ powershell -Command "Invoke-WebRequest -Uri 'https://github.com/Kacperpe/StockMa
    Go to the [project page on GitHub](https://github.com/Kacperpe/StockMarketCalendar), click the green **Code** → **Download ZIP** button, then extract the folder anywhere (e.g. `C:\MT5Monitor`).
 
 2. **Run the installer**  
-   Double-click `install.bat`.  
+   Double-click `install.bat` (or just run `start_server.bat` and it will auto-run installer when needed).  
    It will:
    - Check that Python is installed
    - Prepare an isolated environment for the app (you don't need to know what this means)
@@ -161,7 +161,7 @@ You need to link your account in Spotware Connect first. See [Getting cTrader Cl
 **cTrader support is unavailable / package import errors (Twisted, ProtoOAErrorRes, EndPoints, etc.)**  
 Install Microsoft C++ Build Tools, then run:
 ```powershell
-.venv\Scripts\python.exe -m pip install -r mt5_server\requirements.txt
+.venv\Scripts\python.exe -m pip install -r mt5_server\requirements-ctrader.txt
 ```
 
 ---
@@ -246,7 +246,7 @@ Close the `start_server.bat` console window, or press `Ctrl+C` inside it.
    Wejdź na [stronę projektu na GitHub](https://github.com/Kacperpe/StockMarketCalendar), kliknij zielony przycisk **Code** → **Download ZIP**, a następnie wypakuj folder w dowolne miejsce (np. `C:\MT5Monitor`).
 
 2. **Uruchom instalator**  
-   Kliknij dwa razy plik `install.bat`.  
+   Kliknij dwa razy plik `install.bat` (albo od razu `start_server.bat` - uruchomi instalator automatycznie, jeśli trzeba).  
    Instalator automatycznie:
    - Sprawdzi, czy Python jest zainstalowany
    - Przygotuje izolowane środowisko dla aplikacji (nie musisz wiedzieć co to znaczy)
@@ -303,7 +303,7 @@ Musisz najpierw przypisać konto w panelu Spotware Connect. Zobacz sekcję [Jak 
 **Obsługa cTrader jest niedostępna / błędy importu pakietów (Twisted, ProtoOAErrorRes, EndPoints itp.)**  
 Zainstaluj Microsoft C++ Build Tools, a następnie uruchom:
 ```powershell
-.venv\Scripts\python.exe -m pip install -r mt5_server\requirements.txt
+.venv\Scripts\python.exe -m pip install -r mt5_server\requirements-ctrader.txt
 ```
 
 ---
