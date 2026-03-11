@@ -43,6 +43,54 @@ _reactor_lock    = threading.Lock()
 POLL_INTERVAL = 5  # seconds between data refreshes
 
 
+def _resolve_protobuf_endpoint(endpoints_cls, is_live: Optional[bool] = None):
+    """
+    Handle naming differences between ctrader-open-api versions.
+    Older releases used PROTRADE_HOST/PROTRADE_PORT, newer use PROTOBUF_*.
+    """
+    if is_live is True:
+        host = getattr(endpoints_cls, "PROTOBUF_LIVE_HOST", None)
+    elif is_live is False:
+        host = getattr(endpoints_cls, "PROTOBUF_DEMO_HOST", None)
+    else:
+        host = (
+            getattr(endpoints_cls, "PROTOBUF_LIVE_HOST", None)
+            or getattr(endpoints_cls, "PROTOBUF_DEMO_HOST", None)
+        )
+
+    if not host:
+        host = getattr(endpoints_cls, "PROTRADE_HOST", None)
+    port = (
+        getattr(endpoints_cls, "PROTRADE_PORT", None)
+        or getattr(endpoints_cls, "PROTOBUF_PORT", None)
+    )
+    if not host or not port:
+        raise RuntimeError("Unsupported ctrader_open_api.EndPoints shape")
+    return host, int(port)
+
+
+def _set_message_callbacks(client, callbacks: Dict[int, Any]):
+    """
+    Support both callback APIs used by different ctrader-open-api releases:
+    - setMessageReceivedCallbacks(dict[payloadType -> handler])
+    - setMessageReceivedCallback(single_handler)
+    """
+    if hasattr(client, "setMessageReceivedCallbacks"):
+        client.setMessageReceivedCallbacks(callbacks)
+        return
+
+    if hasattr(client, "setMessageReceivedCallback"):
+        def _on_message_received(c, message):
+            payload_type = getattr(message, "payloadType", None)
+            handler = callbacks.get(payload_type)
+            if handler:
+                handler(c, message)
+        client.setMessageReceivedCallback(_on_message_received)
+        return
+
+    raise RuntimeError("Client object has no supported message callback API")
+
+
 # ── Reactor ───────────────────────────────────────────────────────────────────
 
 def _ensure_reactor():
@@ -66,7 +114,8 @@ def _ensure_reactor():
 # ── Public API ────────────────────────────────────────────────────────────────
 
 def connect(client_id: str, client_secret: str,
-            access_token: str, account_id: int) -> tuple[bool, Optional[str]]:
+            access_token: str, account_id: int,
+            is_live: bool = False) -> tuple[bool, Optional[str]]:
     """
     Authenticate with cTrader.
     Returns (True, None) on success, (False, error_message) on failure.
@@ -87,7 +136,6 @@ def connect(client_id: str, client_secret: str,
         try:
             from twisted.internet import reactor
             from ctrader_open_api import Client, TcpProtocol, EndPoints
-            from ctrader_open_api.messages.OpenApiCommonMessages_pb2 import ProtoOAErrorRes
             from ctrader_open_api.messages.OpenApiMessages_pb2 import (
                 ProtoOAApplicationAuthReq, ProtoOAApplicationAuthRes,
                 ProtoOAAccountAuthReq,     ProtoOAAccountAuthRes,
@@ -97,6 +145,7 @@ def connect(client_id: str, client_secret: str,
                 ProtoOASubscribeSpotsReq,
                 ProtoOASpotEvent,
                 ProtoOADealListRes,
+                ProtoOAErrorRes,
             )
             from ctrader_open_api import Protobuf
 
@@ -108,7 +157,8 @@ def connect(client_id: str, client_secret: str,
                     pass
                 _client = None
 
-            client = Client(EndPoints.PROTRADE_HOST, EndPoints.PROTRADE_PORT, TcpProtocol)
+            host, port = _resolve_protobuf_endpoint(EndPoints, is_live=is_live)
+            client = Client(host, port, TcpProtocol)
 
             # ── Step 1: App auth ─────────────────────────────────────────────
             def on_connected(client):
@@ -228,7 +278,7 @@ def connect(client_id: str, client_secret: str,
             }
             client.setConnectedCallback(on_connected)
             client.setDisconnectedCallback(on_disconnected)
-            client.setMessageReceivedCallbacks(callbacks)
+            _set_message_callbacks(client, callbacks)
             client.startService()
             _client = client
 
@@ -293,6 +343,101 @@ def get_equity_history() -> list:
 # ── Deal list fetcher ─────────────────────────────────────────────────────────
 
 _deal_pending: Dict[str, Any] = {}   # corr_id → {"event": Event, "deals": list}
+
+
+def get_accounts_by_token(
+    access_token: str,
+    client_id: str,
+    client_secret: str,
+) -> tuple[list[dict[str, Any]], Optional[str]]:
+    """
+    Fetch cTrader accounts for the OAuth access token via Open API protobuf.
+    This uses a temporary client and does not alter the main live connection.
+    """
+    _ensure_reactor()
+
+    result_event = Event()
+    result: Dict[str, Any] = {"accounts": [], "error": None}
+
+    def _do():
+        try:
+            from ctrader_open_api import Client, EndPoints, TcpProtocol
+            from ctrader_open_api import Protobuf
+            from ctrader_open_api.messages.OpenApiMessages_pb2 import (
+                ProtoOAApplicationAuthReq,
+                ProtoOAApplicationAuthRes,
+                ProtoOAGetAccountListByAccessTokenReq,
+                ProtoOAGetAccountListByAccessTokenRes,
+                ProtoOAErrorRes,
+            )
+
+            host, port = _resolve_protobuf_endpoint(EndPoints)
+            tmp_client = Client(host, port, TcpProtocol)
+
+            def _finish(error: Optional[str] = None):
+                if error and not result["error"]:
+                    result["error"] = error
+                result_event.set()
+                try:
+                    tmp_client.stopService()
+                except Exception:
+                    pass
+
+            def on_connected(client):
+                req = ProtoOAApplicationAuthReq()
+                req.clientId = client_id
+                req.clientSecret = client_secret
+                client.send(req)
+
+            def on_disconnected(client, reason):
+                if not result_event.is_set():
+                    _finish(f"cTrader disconnected while loading accounts: {reason}")
+
+            def on_app_auth_res(client, message):
+                req = ProtoOAGetAccountListByAccessTokenReq()
+                req.accessToken = access_token
+                client.send(req)
+
+            def on_account_list_res(client, message):
+                msg = Protobuf.extract(message)
+                result["accounts"] = [
+                    {
+                        "id": int(acc.ctidTraderAccountId),
+                        "broker": "cTrader",
+                        "is_live": bool(getattr(acc, "isLive", False)),
+                        "trader_login": int(getattr(acc, "traderLogin", 0) or 0),
+                    }
+                    for acc in msg.ctidTraderAccount
+                ]
+                _finish()
+
+            def on_error(client, message):
+                msg = Protobuf.extract(message)
+                _finish(getattr(msg, "description", "Unknown cTrader error"))
+
+            callbacks = {
+                ProtoOAApplicationAuthRes().payloadType: on_app_auth_res,
+                ProtoOAGetAccountListByAccessTokenRes().payloadType: on_account_list_res,
+                ProtoOAErrorRes().payloadType: on_error,
+            }
+            tmp_client.setConnectedCallback(on_connected)
+            tmp_client.setDisconnectedCallback(on_disconnected)
+            _set_message_callbacks(tmp_client, callbacks)
+            tmp_client.startService()
+        except Exception as exc:
+            logger.exception("cTrader get_accounts_by_token failed")
+            result["error"] = str(exc)
+            result_event.set()
+
+    from twisted.internet import reactor
+    reactor.callFromThread(_do)
+    result_event.wait(timeout=15.0)
+
+    if not result_event.is_set():
+        return [], "Timeout (15 s) while loading cTrader accounts"
+    if result["error"]:
+        return [], result["error"]
+    return result["accounts"], None
 
 
 def fetch_deals(from_ts_ms: int, to_ts_ms: int, max_rows: int = 10000) -> list:

@@ -1,4 +1,5 @@
 import asyncio
+import importlib.util
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -15,6 +16,28 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 import broker_state
+
+
+def _load_ctrader_support():
+    missing_runtime = [
+        module_name
+        for module_name in ("twisted", "ctrader_open_api")
+        if importlib.util.find_spec(module_name) is None
+    ]
+    if missing_runtime:
+        missing = ", ".join(missing_runtime)
+        return None, None, (
+            "cTrader support is not installed. Missing Python packages: "
+            f"{missing}. Install Microsoft Visual C++ Build Tools first, then run: "
+            "pip install ctrader-open-api"
+        )
+
+    try:
+        import ct_client as loaded_ct_client
+        import ct_oauth as loaded_ct_oauth
+        return loaded_ct_client, loaded_ct_oauth, None
+    except Exception as exc:
+        return None, None, f"cTrader support failed to load: {exc}"
 try:
     import ct_client
     import ct_oauth
@@ -27,6 +50,12 @@ except ImportError:
         "ctrader-open-api not installed — cTrader support disabled. "
         "Install with: pip install ctrader-open-api"
     )
+ct_client, ct_oauth, CT_ERROR = _load_ctrader_support()
+CT_AVAILABLE = CT_ERROR is None
+
+if CT_ERROR:
+    logging.getLogger(__name__).warning(CT_ERROR)
+
 from auth import clear_session, create_session, is_authenticated, require_api_key
 from config import settings
 from data_parser import build_full_equity_curve, get_overview_stats
@@ -154,13 +183,14 @@ class CTAuthorizeRequest(BaseModel):
 
 class CTConnectRequest(BaseModel):
     account_id: int
+    is_live: bool = False
 
 
 @app.post("/auth/ctrader/authorize")
 def ct_authorize(req: CTAuthorizeRequest):
     """Store credentials and return the Spotware OAuth2 authorization URL."""
     if not CT_AVAILABLE:
-        return {"ok": False, "error": "cTrader support not installed. Run: pip install ctrader-open-api"}
+        return {"ok": False, "error": CT_ERROR}
     _ct_oauth_pending["client_id"]     = req.client_id
     _ct_oauth_pending["client_secret"] = req.client_secret
     _ct_oauth_pending["access_token"]  = None
@@ -217,7 +247,11 @@ def ct_accounts_list(request: Request):
     token = _ct_oauth_pending.get("access_token")
     if not token:
         return {"ok": False, "error": "No access token — authorize first"}
-    accounts, err = ct_oauth.list_accounts(token)
+    accounts, err = ct_client.get_accounts_by_token(
+        token,
+        _ct_oauth_pending["client_id"],
+        _ct_oauth_pending["client_secret"],
+    )
     if err:
         return {"ok": False, "error": err}
     return {"ok": True, "accounts": accounts}
@@ -229,7 +263,11 @@ def ct_accounts_list_pre():
     token = _ct_oauth_pending.get("access_token")
     if not token:
         return {"ok": False, "error": "No access token"}
-    accounts, err = ct_oauth.list_accounts(token)
+    accounts, err = ct_client.get_accounts_by_token(
+        token,
+        _ct_oauth_pending["client_id"],
+        _ct_oauth_pending["client_secret"],
+    )
     if err:
         return {"ok": False, "error": err}
     return {"ok": True, "accounts": accounts}
@@ -238,7 +276,7 @@ def ct_accounts_list_pre():
 @app.post("/auth/ctrader/connect")
 async def ct_connect(req: CTConnectRequest):
     if not CT_AVAILABLE:
-        return {"ok": False, "error": "cTrader support not installed. Run: pip install ctrader-open-api"}
+        return {"ok": False, "error": CT_ERROR}
     global _poller_task
 
     token = _ct_oauth_pending.get("access_token")
@@ -251,7 +289,7 @@ async def ct_connect(req: CTConnectRequest):
     # connect() is blocking (Twisted) — run in thread pool
     loop = asyncio.get_event_loop()
     ok, err = await loop.run_in_executor(
-        None, ct_client.connect, client_id, client_secret, token, req.account_id
+        None, ct_client.connect, client_id, client_secret, token, req.account_id, req.is_live
     )
     if not ok:
         return {"ok": False, "error": err}

@@ -169,7 +169,7 @@ async function loadCtAccounts() {
     }
     const select = document.getElementById('ct-account-list');
     select.innerHTML = data.accounts.map(a =>
-      `<option value="${a.id}">${a.broker} — ${a.id} (${a.is_live ? 'LIVE' : 'DEMO'})</option>`
+      `<option value="${a.id}" data-is-live="${a.is_live ? '1' : '0'}">${a.broker} — ${a.id} (${a.is_live ? 'LIVE' : 'DEMO'})</option>`
     ).join('');
     document.getElementById('ct-account-row').classList.remove('hidden');
   } catch {
@@ -178,7 +178,10 @@ async function loadCtAccounts() {
 }
 
 async function handleCtConnect() {
-  const accountId = parseInt(document.getElementById('ct-account-list').value);
+  const select    = document.getElementById('ct-account-list');
+  const accountId = parseInt(select.value);
+  const selected  = select.options[select.selectedIndex];
+  const isLive    = (selected?.dataset?.isLive || '0') === '1';
   const btn       = document.getElementById('ct-connect-btn');
   if (!accountId) return;
 
@@ -190,7 +193,7 @@ async function handleCtConnect() {
     const res  = await fetch('/auth/ctrader/connect', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ account_id: accountId }),
+      body:    JSON.stringify({ account_id: accountId, is_live: isLive }),
     });
     const data = await res.json();
     if (data.ok) {
@@ -831,3 +834,4 @@ document.addEventListener('DOMContentLoaded', () => {
     loadCalendar();
   });
 });
+

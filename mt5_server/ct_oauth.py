@@ -14,8 +14,29 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-SPOTWARE_AUTH_BASE  = "https://connect.spotware.com"
-SPOTWARE_API_BASE   = "https://api.spotware.com"
+SPOTWARE_AUTH_BASE    = "https://id.ctrader.com"
+SPOTWARE_OPENAPI_BASE = "https://openapi.ctrader.com"
+SPOTWARE_API_BASE     = "https://api.spotware.com"
+
+
+def _read_json(resp: requests.Response) -> Optional[dict]:
+    try:
+        data = resp.json()
+    except ValueError:
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _describe_error(resp: requests.Response, data: Optional[dict]) -> str:
+    if data:
+        err = data.get("error_description") or data.get("error") or data.get("message")
+        if err:
+            return str(err)
+
+    body = resp.text.strip()
+    if body:
+        return f"HTTP {resp.status_code}: {body[:200]}"
+    return f"HTTP {resp.status_code}: empty response from Spotware"
 
 # ── 1. Authorization URL ──────────────────────────────────────────────────────
 
@@ -27,8 +48,9 @@ def get_auth_url(client_id: str, redirect_uri: str) -> str:
         "redirect_uri":  redirect_uri,
         "scope":         "trading",
         "response_type": "code",
+        "product":       "web",
     })
-    return f"{SPOTWARE_AUTH_BASE}/apps/{client_id}/auth?{params}"
+    return f"{SPOTWARE_AUTH_BASE}/my/settings/openapi/grantingaccess/?{params}"
 
 
 # ── 2. Code → Token ───────────────────────────────────────────────────────────
@@ -44,22 +66,22 @@ def exchange_code(
     Returns (access_token, error_message).
     """
     try:
-        resp = requests.post(
-            f"{SPOTWARE_AUTH_BASE}/apps/token",
-            data={
+        resp = requests.get(
+            f"{SPOTWARE_OPENAPI_BASE}/apps/token",
+            params={
                 "grant_type":    "authorization_code",
                 "code":          code,
                 "client_id":     client_id,
                 "client_secret": client_secret,
                 "redirect_uri":  redirect_uri,
             },
+            headers={"Accept": "application/json"},
             timeout=10,
         )
-        data = resp.json()
-        if resp.status_code == 200 and "accessToken" in data:
+        data = _read_json(resp)
+        if resp.status_code == 200 and data and "accessToken" in data:
             return data["accessToken"], None
-        err = data.get("error_description") or data.get("error") or str(resp.status_code)
-        return None, err
+        return None, _describe_error(resp, data)
     except Exception as e:
         logger.error(f"CT token exchange error: {e}")
         return None, str(e)

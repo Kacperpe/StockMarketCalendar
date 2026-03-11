@@ -67,6 +67,8 @@ powershell -Command "Invoke-WebRequest -Uri 'https://github.com/Kacperpe/StockMa
 - **MetaTrader 5 terminal** — running **and logged in** to your account *(only for MT5 accounts)*  
   ⚠️ Just having MT5 open is not enough — you must be logged in to a trading account
 - Internet connection *(only for cTrader accounts)*
+- For **cTrader support on Windows**: install **Microsoft C++ Build Tools** first, then run `install.bat`  
+  https://visualstudio.microsoft.com/visual-cpp-build-tools/
 
 ---
 
@@ -88,6 +90,7 @@ powershell -Command "Invoke-WebRequest -Uri 'https://github.com/Kacperpe/StockMa
 6. Click **Add Account** and enter your cTrader account number
    > 💡 Your cTrader account number is the numeric ID visible in the top-left corner of the cTrader desktop platform after logging in (e.g. `12345678`)
 7. You can add multiple accounts — all will be selectable in the dashboard after authorization
+   > 💡 Accounts are shown as **LIVE/DEMO** in the app. Select the correct one before connecting.
 
 > 💡 If you skip steps 5–7, only accounts assigned by your broker will appear after login.
 
@@ -136,6 +139,7 @@ powershell -Command "Invoke-WebRequest -Uri 'https://github.com/Kacperpe/StockMa
    - Click **Autoryzuj** — a Spotware login page will open in your browser
    - Log in with your Spotware account
    - Return to the dashboard — your accounts will load automatically. Select one and click **Połącz**
+   - The app routes to the proper cTrader endpoint automatically based on selected account type (**LIVE/DEMO**)
 
 ---
 
@@ -152,6 +156,12 @@ Check that MetaTrader 5 is open **and logged in** on the same computer. Make sur
 
 **cTrader — no accounts appear after authorization**  
 You need to link your account in Spotware Connect first. See [Getting cTrader Client ID & Secret](#getting-ctrader-client-id--secret) steps 5–7.
+
+**cTrader support is unavailable / package import errors (Twisted, ProtoOAErrorRes, EndPoints, etc.)**  
+Install Microsoft C++ Build Tools, then run:
+```powershell
+.venv\Scripts\python.exe -m pip install -r mt5_server\requirements.txt
+```
 
 ---
 
@@ -198,6 +208,8 @@ Close the `start_server.bat` console window, or press `Ctrl+C` inside it.
 - **Terminal MetaTrader 5** — uruchomiony i **zalogowany** na konto *(tylko dla kont MT5)*  
   ⚠️ Sam otwarty MT5 nie wystarczy — musisz być zalogowany na konto tradingowe
 - Połączenie z internetem *(tylko dla kont cTrader)*
+- Dla **obsługi cTrader na Windows**: najpierw zainstaluj **Microsoft C++ Build Tools**, potem uruchom `install.bat`  
+  https://visualstudio.microsoft.com/visual-cpp-build-tools/
 
 ---
 
@@ -219,6 +231,7 @@ Close the `start_server.bat` console window, or press `Ctrl+C` inside it.
 6. Kliknij **Add Account** i wpisz numer swojego konta cTrader
    > 💡 Numer konta cTrader widoczny jest w lewym górnym rogu platformy cTrader po zalogowaniu — to ciąg cyfr (np. `12345678`)
 7. Możesz dodać kilka kont — wszystkie będą dostępne w selektorze kont w dashboardzie po autoryzacji
+   > 💡 W aplikacji konta są oznaczone jako **LIVE/DEMO**. Wybierz właściwe przed połączeniem.
 
 > 💡 Jeśli pominiesz kroki 5–7, po zalogowaniu pojawią się tylko konta przypisane przez brokera.
 
@@ -267,6 +280,7 @@ Close the `start_server.bat` console window, or press `Ctrl+C` inside it.
    - Kliknij **Autoryzuj** — w przeglądarce otworzy się strona logowania Spotware
    - Zaloguj się swoim kontem Spotware
    - Wróć do dashboardu — konta załadują się automatycznie. Wybierz konto i kliknij **Połącz**
+   - Aplikacja automatycznie wybierze właściwy endpoint cTrader na podstawie typu konta (**LIVE/DEMO**)
 
 ---
 
@@ -283,6 +297,12 @@ Sprawdź, czy MetaTrader 5 jest otwarty **i zalogowany** na tym samym komputerze
 
 **cTrader — po autoryzacji nie pojawiają się żadne konta**  
 Musisz najpierw przypisać konto w panelu Spotware Connect. Zobacz sekcję [Jak uzyskać Client ID i Client Secret](#jak-uzyska-client-id-i-client-secret-dla-ctrader) — szczególnie kroki 5–7.
+
+**Obsługa cTrader jest niedostępna / błędy importu pakietów (Twisted, ProtoOAErrorRes, EndPoints itp.)**  
+Zainstaluj Microsoft C++ Build Tools, a następnie uruchom:
+```powershell
+.venv\Scripts\python.exe -m pip install -r mt5_server\requirements.txt
+```
 
 ---
 
