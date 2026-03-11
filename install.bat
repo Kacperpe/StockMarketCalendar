@@ -107,9 +107,7 @@ if "!MISSING_SIZE!"=="0" (
         echo.
         echo  [UWAGA] Nie udalo sie zainstalowac pelnego stosu cTrader.
         echo  Obsluga kont cTrader bedzie niedostepna.
-        echo  Aby ja wlaczyc, zainstaluj Microsoft C++ Build Tools:
-        echo  https://visualstudio.microsoft.com/visual-cpp-build-tools/
-        echo  a nastepnie uruchom ponownie: install.bat
+        echo  Upewnij sie ze masz Python 3.11 lub nowszy i uruchom ponownie install.bat
     )
 )
 
