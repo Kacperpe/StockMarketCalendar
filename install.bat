@@ -48,23 +48,74 @@ echo  [3/4] Instalowanie pakietow Python (MT5 + FastAPI)...
 echo  (to moze chwile potrwac)
 echo.
 .venv\Scripts\python.exe -m pip install --upgrade pip --quiet
-.venv\Scripts\python.exe -m pip install -r mt5_server\requirements.txt --ignore-requires-python 2>nul
+set "REQ_FILE=mt5_server\requirements.txt"
+set "MISSING_REQ=%TEMP%\mt5monitor_missing_requirements.txt"
+set "CORE_REQ=%TEMP%\mt5monitor_core_requirements.txt"
+set "MISSING_CORE=%TEMP%\mt5monitor_missing_core_requirements.txt"
+
+.venv\Scripts\python.exe mt5_server\scripts\filter_missing_requirements.py "%REQ_FILE%" "%MISSING_REQ%"
 if errorlevel 1 (
-    echo.
-    echo  Probuje instalacje bez ctrader-open-api (wymaga kompilatora C++)...
-    .venv\Scripts\python.exe -m pip install MetaTrader5 fastapi "uvicorn[standard]" pydantic-settings pandas python-dotenv slowapi requests
-    if errorlevel 1 (
-        echo  [BLAD] Instalacja podstawowych pakietow nie powiodla sie!
-        pause
-        exit /b 1
-    )
-    echo.
-    echo  [UWAGA] ctrader-open-api nie zostal zainstalowany.
-    echo  Obsluga kont cTrader bedzie niedostepna.
-    echo  Aby ja wlaczyc, zainstaluj Microsoft C++ Build Tools:
-    echo  https://visualstudio.microsoft.com/visual-cpp-build-tools/
-    echo  a nastepnie uruchom: .venv\Scripts\python.exe -m pip install ctrader-open-api
+    echo  [BLAD] Nie udalo sie przeskanowac requirements!
+    pause
+    exit /b 1
 )
+
+for %%I in ("%MISSING_REQ%") do set "MISSING_SIZE=%%~zI"
+if "!MISSING_SIZE!"=="0" (
+    echo  Wszystkie wymagane pakiety sa juz zainstalowane.
+) else (
+    .venv\Scripts\python.exe -m pip install -r "%MISSING_REQ%" --ignore-requires-python 2>nul
+    if errorlevel 1 (
+        echo.
+        echo  Probuje instalacje tylko podstawowych pakietow (bez cTrader)...
+        (
+            echo MetaTrader5
+            echo fastapi
+            echo uvicorn[standard]
+            echo pydantic-settings
+            echo pandas
+            echo python-dotenv
+            echo slowapi
+            echo requests==2.32.3
+        ) > "%CORE_REQ%"
+
+        .venv\Scripts\python.exe mt5_server\scripts\filter_missing_requirements.py "%CORE_REQ%" "%MISSING_CORE%"
+        if errorlevel 1 (
+            echo  [BLAD] Nie udalo sie przeskanowac podstawowych pakietow!
+            del "%MISSING_REQ%" 2>nul
+            del "%CORE_REQ%" 2>nul
+            del "%MISSING_CORE%" 2>nul
+            pause
+            exit /b 1
+        )
+
+        for %%I in ("%MISSING_CORE%") do set "MISSING_CORE_SIZE=%%~zI"
+        if "!MISSING_CORE_SIZE!"=="0" (
+            echo  Podstawowe pakiety sa juz zainstalowane.
+        ) else (
+            .venv\Scripts\python.exe -m pip install -r "%MISSING_CORE%"
+            if errorlevel 1 (
+                echo  [BLAD] Instalacja podstawowych pakietow nie powiodla sie!
+                del "%MISSING_REQ%" 2>nul
+                del "%CORE_REQ%" 2>nul
+                del "%MISSING_CORE%" 2>nul
+                pause
+                exit /b 1
+            )
+        )
+
+        echo.
+        echo  [UWAGA] Nie udalo sie zainstalowac pelnego stosu cTrader.
+        echo  Obsluga kont cTrader bedzie niedostepna.
+        echo  Aby ja wlaczyc, zainstaluj Microsoft C++ Build Tools:
+        echo  https://visualstudio.microsoft.com/visual-cpp-build-tools/
+        echo  a nastepnie uruchom ponownie: install.bat
+    )
+)
+
+del "%MISSING_REQ%" 2>nul
+del "%CORE_REQ%" 2>nul
+del "%MISSING_CORE%" 2>nul
 
 :: ── 4. Utwórz plik .env jeśli nie istnieje ───────────────────────────────────
 echo.

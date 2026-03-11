@@ -108,6 +108,7 @@ powershell -Command "Invoke-WebRequest -Uri 'https://github.com/Kacperpe/StockMa
    It will:
    - Check that Python is installed
    - Prepare an isolated environment for the app (you don't need to know what this means)
+   - Scan installed packages and install only missing or mismatched requirements
    - Install all required packages
    - Create a default `mt5_server\.env` config file
 
@@ -249,6 +250,7 @@ Close the `start_server.bat` console window, or press `Ctrl+C` inside it.
    Instalator automatycznie:
    - Sprawdzi, czy Python jest zainstalowany
    - Przygotuje izolowane środowisko dla aplikacji (nie musisz wiedzieć co to znaczy)
+   - Przeskanuje zainstalowane pakiety i doinstaluje tylko brakujące lub niezgodne wersje
    - Zainstaluje wszystkie wymagane pakiety
    - Utworzy domyślny plik konfiguracyjny `mt5_server\.env`
 
