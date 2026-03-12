@@ -2,6 +2,7 @@ import asyncio
 import importlib.util
 import logging
 from contextlib import asynccontextmanager
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -83,15 +84,88 @@ _ct_oauth_pending: dict = {
     "access_token":  None,
 }
 
+# Persisted cTrader session (loaded from / saved to ct_session.json)
+_CT_SESSION_PATH = Path(__file__).resolve().parent / "ct_session.json"
+_ct_saved_session: dict = {}   # populated by _load_ct_session()
+
+
+def _load_ct_session() -> None:
+    """Load persisted cTrader credentials into memory on startup."""
+    global _ct_saved_session
+    try:
+        if _CT_SESSION_PATH.exists():
+            import json
+            data = json.loads(_CT_SESSION_PATH.read_text(encoding="utf-8"))
+            _ct_saved_session = data
+            # Pre-populate oauth pending so reconnect works without re-auth
+            _ct_oauth_pending["client_id"]    = data.get("client_id")
+            _ct_oauth_pending["client_secret"] = data.get("client_secret")
+            _ct_oauth_pending["access_token"] = data.get("access_token")
+            logger.info(
+                "Loaded saved cTrader session for account %s", data.get("account_id")
+            )
+    except Exception as exc:
+        logger.warning("Could not load saved cTrader session: %s", exc)
+
+
+def _save_ct_session(
+    client_id: str,
+    client_secret: str,
+    access_token: str,
+    account_id: int,
+    is_live: bool,
+    account_name: str,
+) -> None:
+    """Persist cTrader credentials to disk for future auto-reconnect."""
+    global _ct_saved_session
+    import json
+    from datetime import timezone
+    data = {
+        "client_id":    client_id,
+        "client_secret": client_secret,
+        "access_token": access_token,
+        "account_id":   account_id,
+        "is_live":      is_live,
+        "account_name": account_name,
+        "saved_at":     datetime.utcnow().replace(tzinfo=timezone.utc).isoformat(),
+    }
+    try:
+        _CT_SESSION_PATH.write_text(
+            json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        _ct_saved_session = data
+        logger.info("Saved cTrader session to %s", _CT_SESSION_PATH)
+    except Exception as exc:
+        logger.warning("Could not save cTrader session: %s", exc)
+
+
+def _clear_ct_session() -> None:
+    """Remove persisted cTrader session from disk."""
+    global _ct_saved_session
+    _ct_saved_session = {}
+    try:
+        if _CT_SESSION_PATH.exists():
+            _CT_SESSION_PATH.unlink()
+    except Exception as exc:
+        logger.warning("Could not remove cTrader session file: %s", exc)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Try to pre-initialize MT5 terminal (no-op if not running / not installed)
-    try:
-        mt5.initialize()
-        logger.info("MT5 terminal initialized — waiting for user login via browser")
-    except Exception:
-        logger.info("MT5 not available — cTrader-only mode")
+    # Optionally pre-initialise MT5 terminal — disabled by default so that
+    # cTrader-only users do not see MT5 launch on startup.
+    if settings.AUTO_INIT_MT5:
+        try:
+            mt5.initialize()
+            logger.info("MT5 terminal initialized — waiting for user login via browser")
+        except Exception:
+            logger.info("MT5 not available — cTrader-only mode")
+    else:
+        logger.info("MT5 auto-init disabled (AUTO_INIT_MT5=False) — connect via browser login")
+
+    # Try to restore a saved cTrader session so users don't need to re-authorise
+    _load_ct_session()
+
     yield
     global _poller_task
     if _poller_task and not _poller_task.done():
@@ -319,10 +393,86 @@ async def ct_connect(req: CTConnectRequest):
     session_token = create_session()
     snap = ct_client.get_snapshot()
     acct = snap.get("account") or {}
+    account_name = str(acct.get("login", req.account_id))
+
+    # Persist credentials so the user can reconnect without re-authorising
+    _save_ct_session(
+        client_id, client_secret, token,
+        req.account_id, req.is_live, account_name,
+    )
+
     return {
         "ok":       True,
         "token":    session_token,
-        "name":     str(acct.get("login", req.account_id)),
+        "name":     account_name,
+        "server":   acct.get("server", "cTrader"),
+        "currency": acct.get("currency", ""),
+        "broker":   "ctrader",
+    }
+
+
+@app.get("/auth/ctrader/saved-session")
+def ct_saved_session():
+    """Return non-sensitive info about the persisted cTrader session (if any)."""
+    if not _ct_saved_session:
+        return {"available": False}
+    return {
+        "available":    True,
+        "account_id":   _ct_saved_session.get("account_id"),
+        "account_name": _ct_saved_session.get("account_name"),
+        "is_live":      _ct_saved_session.get("is_live", False),
+        "saved_at":     _ct_saved_session.get("saved_at"),
+    }
+
+
+@app.post("/auth/ctrader/reconnect")
+async def ct_reconnect():
+    """Reconnect using the persisted cTrader session without re-authorising."""
+    if not CT_AVAILABLE:
+        return {"ok": False, "error": CT_ERROR}
+    if not _ct_saved_session:
+        return {"ok": False, "error": "No saved session — authorise first"}
+
+    global _poller_task
+
+    client_id     = _ct_saved_session["client_id"]
+    client_secret = _ct_saved_session["client_secret"]
+    access_token  = _ct_saved_session["access_token"]
+    account_id    = _ct_saved_session["account_id"]
+    is_live       = _ct_saved_session.get("is_live", False)
+
+    # Restore into pending so other helpers that read it keep working
+    _ct_oauth_pending["client_id"]    = client_id
+    _ct_oauth_pending["client_secret"] = client_secret
+    _ct_oauth_pending["access_token"] = access_token
+
+    loop = asyncio.get_event_loop()
+    ok, err = await loop.run_in_executor(
+        None, ct_client.connect, client_id, client_secret, access_token, account_id, is_live
+    )
+    if not ok:
+        # Token may have expired — clear saved session so user can re-auth
+        _clear_ct_session()
+        return {"ok": False, "error": f"Zapisana sesja wygasła lub jest nieprawidłowa: {err}"}
+
+    broker_state.set_broker(broker_state.BROKER_CT)
+
+    if _poller_task and not _poller_task.done():
+        _poller_task.cancel()
+        _poller_task = None
+
+    session_token = create_session()
+    snap = ct_client.get_snapshot()
+    acct = snap.get("account") or {}
+    account_name = str(acct.get("login", account_id))
+
+    # Refresh saved session with latest account name
+    _save_ct_session(client_id, client_secret, access_token, account_id, is_live, account_name)
+
+    return {
+        "ok":       True,
+        "token":    session_token,
+        "name":     account_name,
         "server":   acct.get("server", "cTrader"),
         "currency": acct.get("currency", ""),
         "broker":   "ctrader",

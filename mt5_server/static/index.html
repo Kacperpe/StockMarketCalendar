@@ -38,12 +38,28 @@
       <!-- cTrader form -->
       <div id="form-ct" class="hidden">
         <p class="login-sub">Autoryzuj przez Spotware OAuth2</p>
-        <input id="ct-client-id" type="text" placeholder="Client ID" autocomplete="off">
-        <div class="key-wrap">
-          <input id="ct-client-secret" type="password" placeholder="Client Secret" autocomplete="off">
-          <button id="ct-show-secret" type="button" class="show-key">👁</button>
+
+        <!-- Saved session reconnect (shown when session exists) -->
+        <div id="ct-saved-session" class="hidden">
+          <div class="saved-session-box">
+            <span class="saved-session-label">🔒 Zapisana sesja:</span>
+            <span id="ct-saved-account" class="saved-session-account"></span>
+          </div>
+          <button id="ct-reconnect-btn">Połącz ponownie</button>
+          <p class="login-sub" style="margin-top:8px">
+            <a href="#" id="ct-new-auth-link">Użyj innego konta / wymuś nowe logowanie</a>
+          </p>
         </div>
-        <button id="ct-auth-btn">Autoryzuj przez Spotware</button>
+
+        <!-- Full OAuth form (hidden when saved session shown) -->
+        <div id="ct-oauth-form">
+          <input id="ct-client-id" type="text" placeholder="Client ID" autocomplete="off">
+          <div class="key-wrap">
+            <input id="ct-client-secret" type="password" placeholder="Client Secret" autocomplete="off">
+            <button id="ct-show-secret" type="button" class="show-key">👁</button>
+          </div>
+          <button id="ct-auth-btn">Autoryzuj przez Spotware</button>
+        </div>
 
         <div id="ct-account-row" class="hidden">
           <p class="login-sub" style="margin-top:12px">✅ Wybierz konto:</p>

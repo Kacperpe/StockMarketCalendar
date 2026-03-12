@@ -24,13 +24,14 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   // ── Broker tab switching ────────────────────────────────────────────────
   document.querySelectorAll('.broker-tab').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       document.querySelectorAll('.broker-tab').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       activeBroker = btn.dataset.broker;
       document.getElementById('form-mt5').classList.toggle('hidden', activeBroker !== 'mt5');
       document.getElementById('form-ct').classList.toggle('hidden',  activeBroker !== 'ctrader');
       document.getElementById('login-error').classList.add('hidden');
+      if (activeBroker === 'ctrader') await checkCtSavedSession();
     });
   });
 
@@ -41,6 +42,12 @@ window.addEventListener('DOMContentLoaded', async () => {
   });
   document.getElementById('ct-auth-btn').addEventListener('click', handleCtAuth);
   document.getElementById('ct-connect-btn').addEventListener('click', handleCtConnect);
+  document.getElementById('ct-reconnect-btn').addEventListener('click', handleCtReconnect);
+  document.getElementById('ct-new-auth-link').addEventListener('click', e => {
+    e.preventDefault();
+    document.getElementById('ct-saved-session').classList.add('hidden');
+    document.getElementById('ct-oauth-form').classList.remove('hidden');
+  });
 
   const stored = sessionStorage.getItem('mt5_token');
   if (stored) {
@@ -57,6 +64,51 @@ window.addEventListener('DOMContentLoaded', async () => {
     </div>`;
   }
 });
+
+/* ── Saved cTrader session helpers ───────────────────────────────────────── */
+async function checkCtSavedSession() {
+  try {
+    const res  = await fetch('/auth/ctrader/saved-session');
+    const data = await res.json();
+    if (data.available) {
+      document.getElementById('ct-saved-account').textContent =
+        `Konto ${data.account_name}${data.is_live ? ' (LIVE)' : ' (DEMO)'}`;
+      document.getElementById('ct-saved-session').classList.remove('hidden');
+      document.getElementById('ct-oauth-form').classList.add('hidden');
+    } else {
+      document.getElementById('ct-saved-session').classList.add('hidden');
+      document.getElementById('ct-oauth-form').classList.remove('hidden');
+    }
+  } catch { /* ignore — show normal form */ }
+}
+
+async function handleCtReconnect() {
+  const btn = document.getElementById('ct-reconnect-btn');
+  btn.textContent = 'Łączenie…';
+  btn.disabled    = true;
+  document.getElementById('login-error').classList.add('hidden');
+
+  try {
+    const res  = await fetch('/auth/ctrader/reconnect', { method: 'POST' });
+    const data = await res.json();
+    if (data.ok) {
+      apiKey       = data.token;
+      activeBroker = 'ctrader';
+      sessionStorage.setItem('mt5_token', apiKey);
+      showDashboard(data);
+    } else {
+      // Session expired — show full OAuth form so user can re-auth
+      document.getElementById('ct-saved-session').classList.add('hidden');
+      document.getElementById('ct-oauth-form').classList.remove('hidden');
+      showLoginError(data.error || 'Błąd ponownego połączenia z cTrader.');
+    }
+  } catch {
+    showLoginError('Nie można połączyć z serwerem.');
+  } finally {
+    btn.textContent = 'Połącz ponownie';
+    btn.disabled    = false;
+  }
+}
 
 /* ── Auth ────────────────────────────────────────────────────────────────── */
 async function validateToken(token) {

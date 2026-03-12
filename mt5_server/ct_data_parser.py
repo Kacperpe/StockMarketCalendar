@@ -324,14 +324,20 @@ def compute_ct_overview(deals_all, balance_now: float, currency: str) -> dict:
             if dd > max_dd:
                 max_dd = dd
 
+    # Approximate starting balance: balance before any closed trades
+    # (balance_now already includes all realised P&L from closed positions)
+    start_balance = balance_now - total_profit
+    deposits      = round(max(start_balance, 0), 2)
+    gain_pct      = round(total_profit / start_balance * 100, 2) if start_balance > 0 else 0.0
+
     return {
         "balance":          round(balance_now, 2),
         "equity":           round(balance_now, 2),
         "currency":         currency,
         "total_profit":     round(total_profit, 2),
-        "deposits":         0,
+        "deposits":         deposits,
         "withdrawals":      0,
-        "gain_pct":         0,
+        "gain_pct":         gain_pct,
         "daily_avg":        daily,
         "monthly_avg":      monthly,
         "max_drawdown_pct": round(max_dd, 2),
