@@ -13,6 +13,7 @@ frontend/.env.production.local
 *.env
 .env.*
 !.env.example
+mt5_server/ct_session.json
 
 # ── Python ────────────────────────────────────────────────────────────────────
 __pycache__/
