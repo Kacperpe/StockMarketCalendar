@@ -13,12 +13,12 @@ limiter = Limiter(key_func=get_remote_address)
 @limiter.limit("30/minute")
 async def calendar_endpoint(request: Request, year: int = None, month: int = None):
     import broker_state
+    import ct_client as _cc
     now = datetime.utcnow()
     y = year  if year  is not None else now.year
     m = month if month is not None else now.month
 
-    if broker_state.is_ct():
-        import ct_client as _cc
+    if broker_state.is_ct() or _cc.is_connected():
         from ct_poller import get_ct_deals_async
         from ct_data_parser import compute_ct_calendar
         # Fetch only the relevant month from cTrader

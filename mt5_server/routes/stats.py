@@ -14,7 +14,8 @@ limiter = Limiter(key_func=get_remote_address)
 @router.get("/statistics", dependencies=[Depends(require_api_key)])
 @limiter.limit("10/minute")
 async def statistics(request: Request, days: int = 30):
-    if broker_state.is_ct():
+    use_ct = broker_state.is_ct() or ct_client.is_connected()
+    if use_ct:
         from ct_poller import get_ct_deals_async
         from ct_data_parser import parse_ct_statistics
         import ct_client as _cc
@@ -28,7 +29,8 @@ async def statistics(request: Request, days: int = 30):
 @limiter.limit("6/minute")
 async def statistics_full(request: Request, days: int = 30):
     """Kompletne statystyki w stylu Myfxbook."""
-    if broker_state.is_ct():
+    use_ct = broker_state.is_ct() or ct_client.is_connected()
+    if use_ct:
         from ct_poller import get_ct_deals_async
         from ct_data_parser import compute_ct_full_stats
         import ct_client as _cc

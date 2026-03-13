@@ -290,33 +290,82 @@ def compute_ct_full_stats(deals, balance_start: float, balance_end: float,
     }
 
 
-def compute_ct_overview(deals_all, balance_now: float, currency: str) -> dict:
-    """Overview stats (gain%, avg daily/monthly, max DD) from CT deal history."""
+def _cashflow_stats(cash_flows: list | None) -> tuple[float, float, float, float | None]:
+    deposits = 0.0
+    withdrawals = 0.0
+    net = 0.0
+    last_balance = None
+
+    for item in cash_flows or []:
+        digits = int(getattr(item, "moneyDigits", 2) or 2)
+        scale = 10 ** digits
+
+        delta = (getattr(item, "delta", 0) or 0) / scale
+        balance = (getattr(item, "balance", 0) or 0) / scale
+
+        if delta > 0:
+            deposits += delta
+        elif delta < 0:
+            withdrawals += abs(delta)
+        net += delta
+        last_balance = balance
+
+    return round(deposits, 2), round(withdrawals, 2), round(net, 2), last_balance
+
+
+def compute_ct_overview(
+    deals_all,
+    balance_now: float | None,
+    currency: str,
+    cash_flows: list | None = None,
+    equity_now: float | None = None,
+) -> dict:
+    """Overview stats (gain%, avg daily/monthly, max DD) from CT history."""
     rows = _ct_deals_to_rows(deals_all)
-    if not rows:
-        return {"balance": round(balance_now, 2), "equity": round(balance_now, 2),
-                "currency": currency, "total_profit": 0, "deposits": 0,
-                "withdrawals": 0, "gain_pct": 0, "daily_avg": 0,
-                "monthly_avg": 0, "max_drawdown_pct": 0}
+    trades = _aggregate_ct_rows(rows, {})
 
-    trades     = _aggregate_ct_rows(rows, {})
-    total_profit = sum(t["pnl_net"] for t in trades)
+    total_profit = round(sum(t["pnl_net"] for t in trades), 2)
+    deposits, withdrawals, net_deposits, last_cash_balance = _cashflow_stats(cash_flows)
 
-    times = [datetime.fromisoformat(t["close_time"]) for t in trades if t["close_time"]]
-    if times:
-        first   = min(times)
-        t_days  = max(1.0, (datetime.utcnow() - first).total_seconds() / 86400)
-        daily   = round(total_profit / t_days, 2)
-        monthly = round(daily * 30.44, 2)
+    balance = float(balance_now or 0.0)
+    if balance == 0.0:
+        if net_deposits != 0.0 or total_profit != 0.0:
+            balance = round(net_deposits + total_profit, 2)
+        elif last_cash_balance is not None:
+            balance = float(last_cash_balance)
+
+    equity = float(equity_now if equity_now is not None else balance)
+    if equity == 0.0 and balance != 0.0:
+        equity = balance
+
+    if trades:
+        times = [datetime.fromisoformat(t["close_time"]) for t in trades if t["close_time"]]
+        if times:
+            first = min(times)
+            t_days = max(1.0, (datetime.utcnow() - first).total_seconds() / 86400)
+            daily = round(total_profit / t_days, 2)
+            monthly = round(daily * 30.44, 2)
+        else:
+            daily = monthly = 0.0
     else:
         daily = monthly = 0.0
 
+    # Gain is based on net deposits when available; fallback to inferred starting balance.
+    base_capital = float(net_deposits)
+    if base_capital <= 0:
+        inferred_start = round(balance - total_profit, 2)
+        if inferred_start > 0:
+            base_capital = inferred_start
+            if deposits == 0 and withdrawals == 0:
+                deposits = inferred_start
+    gain_pct = round((total_profit / base_capital * 100) if base_capital > 0 else 0.0, 2)
+
     # Approx max drawdown from running balance
-    running = balance_now
-    peak    = running
-    max_dd  = 0.0
-    for t in sorted(trades, key=lambda x: x["close_time"], reverse=True):
-        running -= t["pnl_net"]
+    running = balance
+    peak = running
+    max_dd = 0.0
+    for trade in sorted(trades, key=lambda x: x["close_time"], reverse=True):
+        running -= trade["pnl_net"]
         if running > peak:
             peak = running
         if peak > 0:
@@ -325,13 +374,13 @@ def compute_ct_overview(deals_all, balance_now: float, currency: str) -> dict:
                 max_dd = dd
 
     return {
-        "balance":          round(balance_now, 2),
-        "equity":           round(balance_now, 2),
+        "balance":          round(balance, 2),
+        "equity":           round(equity, 2),
         "currency":         currency,
-        "total_profit":     round(total_profit, 2),
-        "deposits":         0,
-        "withdrawals":      0,
-        "gain_pct":         0,
+        "total_profit":     total_profit,
+        "deposits":         round(deposits, 2),
+        "withdrawals":      round(withdrawals, 2),
+        "gain_pct":         gain_pct,
         "daily_avg":        daily,
         "monthly_avg":      monthly,
         "max_drawdown_pct": round(max_dd, 2),

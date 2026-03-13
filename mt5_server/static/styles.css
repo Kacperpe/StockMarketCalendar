@@ -8,8 +8,8 @@
   --green:   #3fb950;
   --red:     #f85149;
   --blue:    #388bfd;
-  --radius:  8px;
-  --font:    'Segoe UI', system-ui, -apple-system, sans-serif;
+  --radius:  5px;
+  --font:    'Noto Serif', Georgia, serif;
 
   /* Calendar */
   --cal-pos-bg:         #0d2318;
@@ -32,6 +32,55 @@ body {
   min-height: 100vh;
 }
 
+.update-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  border-bottom: 1px solid color-mix(in srgb, var(--blue) 55%, var(--border));
+  background: color-mix(in srgb, var(--blue) 12%, var(--surface));
+}
+.update-banner-text {
+  font-size: 13px;
+}
+.update-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.update-btn-primary,
+.update-btn-secondary {
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.update-btn-primary {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #fff;
+}
+.update-btn-secondary {
+  background: transparent;
+  color: var(--text);
+}
+.update-btn-primary:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+.update-banner-status {
+  width: 100%;
+  font-size: 12px;
+  color: var(--muted);
+}
+.update-banner-status.error {
+  color: var(--red);
+}
+
 /* ── Utilities ───────────────────────────────────────────────────────────── */
 .hidden   { display: none !important; }
 .screen   { min-height: 100vh; }
@@ -45,8 +94,9 @@ body {
 /* ── Login ───────────────────────────────────────────────────────────────── */
 #login-screen {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
+  padding-top: 20vh;
 }
 
 .login-card {
@@ -71,6 +121,18 @@ body {
 .login-sub {
   color: var(--muted);
   font-size: 13px;
+  margin-bottom: 8px;
+}
+
+.login-broker-image {
+  width: 220px;
+  height: 220px;
+  object-fit: cover;
+  border-radius: var(--radius);
+  border: none;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
   margin-bottom: 8px;
 }
 
@@ -153,6 +215,83 @@ body {
   font-size: 14px;
   outline: none;
   margin-bottom: 4px;
+}
+
+/* ── Saved logins ────────────────────────────────────────────────────────── */
+.saved-logins-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.saved-select-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.saved-logins-select {
+  flex: 1;
+  background: color-mix(in srgb, var(--blue) 8%, var(--bg));
+  border: 1px solid color-mix(in srgb, var(--blue) 40%, var(--border));
+  border-radius: var(--radius);
+  color: var(--text);
+  padding: 10px 14px;
+  font-size: 13px;
+  outline: none;
+  width: auto !important;
+  margin-top: 0 !important;
+  cursor: pointer;
+}
+.saved-logins-select:focus { border-color: var(--blue); }
+.saved-del-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--red);
+  padding: 10px 12px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+  width: auto !important;
+  margin-top: 0 !important;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.saved-del-btn:hover { background: rgba(248,81,73,.12); border-color: var(--red); }
+
+/* Remember row */
+.remember-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px 2px;
+  user-select: none;
+  text-align: left;
+  width: 100% !important;
+  background: transparent !important;
+  border: none !important;
+  margin-top: 0 !important;
+  font-weight: 400;
+}
+.remember-row:hover { color: var(--text); }
+.remember-row input[type=checkbox] {
+  width: 15px !important;
+  height: 15px;
+  accent-color: var(--blue);
+  cursor: pointer;
+  flex-shrink: 0;
+  margin: 0;
+}
+
+/* ── Field separator (login form) ────────────────────────────────────────── */
+.field-sep {
+  height: 1px;
+  background: var(--border);
+  opacity: 0.5;
+  border-radius: 1px;
+  margin: 2px 0;
 }
 
 /* ── Header ──────────────────────────────────────────────────────────────── */
@@ -476,6 +615,43 @@ select:focus { border-color: var(--blue); }
   flex-shrink: 0;
 }
 
+/* cTrader account switcher in menu drawer */
+.ct-switch-select {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  padding: 9px 12px;
+  font-size: 13px;
+  outline: none;
+  cursor: pointer;
+  font-family: var(--font);
+}
+.ct-switch-select:focus { border-color: var(--blue); }
+.ct-switch-btn {
+  width: 100%;
+  background: color-mix(in srgb, var(--blue) 15%, var(--bg));
+  border: 1px solid color-mix(in srgb, var(--blue) 50%, var(--border));
+  border-radius: var(--radius);
+  color: var(--text);
+  padding: 9px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+  font-family: var(--font);
+}
+.ct-switch-btn:hover    { background: color-mix(in srgb, var(--blue) 25%, var(--bg)); border-color: var(--blue); }
+.ct-switch-btn:disabled { opacity: .5; cursor: default; }
+.ct-switch-status {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.ct-switch-status.error { color: var(--red); }
+.ct-switch-status.ok    { color: var(--green); }
+
 /* Theme buttons */
 .theme-btns {
   display: flex;
@@ -680,6 +856,16 @@ select:focus { border-color: var(--blue); }
 /* ── Mobile ──────────────────────────────────────────────────────────────── */
 @media (max-width: 600px) {
 
+  .update-banner {
+    padding: 8px 10px;
+    gap: 8px;
+  }
+  .update-banner-actions {
+    width: 100%;
+    margin-left: 0;
+    justify-content: flex-start;
+  }
+
   /* Login */
   .login-card {
     width: 100%;
@@ -688,6 +874,10 @@ select:focus { border-color: var(--blue); }
     border-radius: 12px;
   }
   #login-screen { align-items: flex-start; padding-top: 40px; }
+  .login-broker-image {
+    width: 220px;
+    height: 220px;
+  }
 
   /* Header */
   header {

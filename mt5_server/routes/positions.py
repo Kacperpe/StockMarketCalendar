@@ -14,7 +14,8 @@ limiter = Limiter(key_func=get_remote_address)
 @router.get("/positions", dependencies=[Depends(require_api_key)])
 @limiter.limit("60/minute")
 def positions(request: Request):
-    if broker_state.is_ct():
+    use_ct = broker_state.is_ct() or ct_client.is_connected()
+    if use_ct:
         snap = ct_client.get_snapshot()
     else:
         snap = get_snapshot()

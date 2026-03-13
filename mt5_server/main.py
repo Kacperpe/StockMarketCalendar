@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Optional
 
 import MetaTrader5 as mt5
-from fastapi import Depends, FastAPI, Request, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -66,6 +66,7 @@ from routes.account import router as account_router
 from routes.calendar import router as calendar_router
 from routes.positions import router as positions_router
 from routes.stats import router as stats_router
+from routes.update import router as update_router
 from ws_manager import ws_manager
 
 logging.basicConfig(level=logging.INFO)
@@ -82,6 +83,15 @@ _ct_oauth_pending: dict = {
     "client_secret": None,
     "access_token":  None,
 }
+
+
+def _is_ct_active() -> bool:
+    if not (CT_AVAILABLE and ct_client):
+        return False
+    try:
+        return broker_state.is_ct() or bool(ct_client.is_connected())
+    except Exception:
+        return broker_state.is_ct()
 
 
 @asynccontextmanager
@@ -108,7 +118,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "DELETE"],
     allow_headers=["X-API-Key", "Content-Type"],
 )
 
@@ -156,6 +166,15 @@ async def auth_connect(req: ConnectRequest):
             ),
         }
 
+    # Switching from cTrader to MT5 must flip the active broker context,
+    # otherwise overview/stat routes may keep reading cTrader state.
+    broker_state.set_broker(broker_state.BROKER_MT5)
+    if CT_AVAILABLE and ct_client:
+        try:
+            ct_client.disconnect()
+        except Exception:
+            logger.exception("Failed to disconnect cTrader client during MT5 connect")
+
     token = create_session()
 
     # Uruchom (lub zrestartuj) pętlę pollingu
@@ -186,6 +205,93 @@ def auth_logout():
         if CT_AVAILABLE and ct_client:
             ct_client.disconnect()
     broker_state.set_broker(broker_state.BROKER_MT5)  # reset to default
+    return {"ok": True}
+
+
+# ── Saved login profiles ──────────────────────────────────────────────────────
+
+class SaveLoginRequest(BaseModel):
+    name: str
+    login: int
+    server: str
+    password: str
+
+
+@app.get("/auth/saved-logins")
+def saved_logins_list():
+    """List saved login profiles (no passwords)."""
+    from saved_logins import list_logins
+    return list_logins()
+
+
+@app.get("/auth/saved-logins/{name}")
+def saved_logins_get(name: str):
+    """Return full credentials for a saved profile (used to auto-fill the login form)."""
+    from saved_logins import get_login
+    entry = get_login(name)
+    if not entry:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    return entry
+
+
+@app.post("/auth/saved-logins")
+def saved_logins_save(req: SaveLoginRequest):
+    """Save or overwrite a login profile."""
+    from saved_logins import save_login
+    save_login(req.name, req.login, req.server, req.password)
+    return {"ok": True}
+
+
+@app.delete("/auth/saved-logins/{name}")
+def saved_logins_delete(name: str):
+    """Delete a saved login profile."""
+    from saved_logins import delete_login
+    ok = delete_login(name)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    return {"ok": True}
+
+
+# ── Saved cTrader profiles ────────────────────────────────────────────────────
+
+class SaveCtLoginRequest(BaseModel):
+    name: str
+    client_id: str
+    client_secret: str
+
+
+@app.get("/auth/saved-ct-logins")
+def saved_ct_logins_list():
+    """List saved cTrader profiles (no secrets)."""
+    from saved_logins import list_ct_logins
+    return list_ct_logins()
+
+
+@app.get("/auth/saved-ct-logins/{name}")
+def saved_ct_logins_get(name: str):
+    """Return full credentials for a saved cTrader profile."""
+    from saved_logins import get_ct_login
+    entry = get_ct_login(name)
+    if not entry:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    return entry
+
+
+@app.post("/auth/saved-ct-logins")
+def saved_ct_logins_save(req: SaveCtLoginRequest):
+    """Save or overwrite a cTrader profile."""
+    from saved_logins import save_ct_login
+    save_ct_login(req.name, req.client_id, req.client_secret)
+    return {"ok": True}
+
+
+@app.delete("/auth/saved-ct-logins/{name}")
+def saved_ct_logins_delete(name: str):
+    """Delete a saved cTrader profile."""
+    from saved_logins import delete_ct_login
+    ok = delete_ct_login(name)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Profile not found")
     return {"ok": True}
 
 
@@ -329,18 +435,54 @@ async def ct_connect(req: CTConnectRequest):
     }
 
 
+class CTSwitchAccountRequest(BaseModel):
+    account_id: int
+    is_live: bool = False
+
+
+@app.post("/auth/ctrader/switch-account", dependencies=[Depends(require_api_key)])
+async def ct_switch_account(req: CTSwitchAccountRequest):
+    """Switch to a different cTrader account without re-authorizing."""
+    if not CT_AVAILABLE:
+        return {"ok": False, "error": CT_ERROR}
+
+    token = _ct_oauth_pending.get("access_token")
+    if not token:
+        return {"ok": False, "error": "No access token — authorize first"}
+
+    client_id     = _ct_oauth_pending["client_id"]
+    client_secret = _ct_oauth_pending["client_secret"]
+
+    loop = asyncio.get_event_loop()
+    ok, err = await loop.run_in_executor(
+        None, ct_client.connect, client_id, client_secret, token, req.account_id, req.is_live
+    )
+    if not ok:
+        return {"ok": False, "error": err}
+
+    snap = ct_client.get_snapshot()
+    acct = snap.get("account") or {}
+    return {
+        "ok":       True,
+        "name":     str(acct.get("login", req.account_id)),
+        "server":   acct.get("server", "cTrader"),
+        "currency": acct.get("currency", ""),
+    }
+
+
 # ── REST ──────────────────────────────────────────────────────────────────────
 
 app.include_router(account_router)
 app.include_router(calendar_router)
 app.include_router(positions_router)
 app.include_router(stats_router)
+app.include_router(update_router)
 
 
 @app.get("/snapshot", dependencies=[Depends(require_api_key)])
 @limiter.limit("60/minute")
 def snapshot_endpoint(request: Request):
-    if broker_state.is_ct():
+    if _is_ct_active():
         return ct_client.get_snapshot()
     return get_snapshot()
 
@@ -348,7 +490,7 @@ def snapshot_endpoint(request: Request):
 @app.get("/history", dependencies=[Depends(require_api_key)])
 @limiter.limit("60/minute")
 def history_endpoint(request: Request):
-    if broker_state.is_ct():
+    if _is_ct_active():
         return ct_client.get_equity_history()
     return get_equity_history()
 
@@ -356,16 +498,25 @@ def history_endpoint(request: Request):
 @app.get("/overview", dependencies=[Depends(require_api_key)])
 @limiter.limit("15/minute")
 async def overview_endpoint(request: Request):
-    if broker_state.is_ct():
-        from ct_poller import get_ct_all_deals_async
+    if _is_ct_active():
+        import asyncio
+        from ct_poller import get_ct_all_cash_flows_async, get_ct_all_deals_async
         from ct_data_parser import compute_ct_overview
         snap  = ct_client.get_snapshot()
         acct  = snap.get("account") or {}
-        deals = await get_ct_all_deals_async()
+        deals_result, cash_result = await asyncio.gather(
+            get_ct_all_deals_async(),
+            get_ct_all_cash_flows_async(),
+            return_exceptions=True,
+        )
+        deals = [] if isinstance(deals_result, Exception) else deals_result
+        cash_flows = [] if isinstance(cash_result, Exception) else cash_result
         return compute_ct_overview(
             deals,
-            acct.get("balance", 0),
+            acct.get("balance"),
             acct.get("currency", ""),
+            cash_flows=cash_flows,
+            equity_now=acct.get("equity"),
         )
     return get_overview_stats()
 
@@ -373,7 +524,7 @@ async def overview_endpoint(request: Request):
 @app.get("/equity-curve", dependencies=[Depends(require_api_key)])
 @limiter.limit("6/minute")
 async def equity_curve_endpoint(request: Request):
-    if broker_state.is_ct():
+    if _is_ct_active():
         from ct_poller import get_ct_all_deals_async
         from ct_data_parser import compute_ct_equity_curve
         deals = await get_ct_all_deals_async()

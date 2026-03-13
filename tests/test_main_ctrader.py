@@ -114,6 +114,32 @@ class MainCTraderTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(result["ok"])
         self.assertIn("No access token", result["error"])
 
+    async def test_overview_endpoint_tolerates_cashflow_fetch_exception(self):
+        with patch.object(main.broker_state, "is_ct", return_value=True):
+            with patch.object(main.ct_client, "get_snapshot", return_value={"account": {"balance": 1000, "equity": 1010, "currency": "USD"}}):
+                async def _raise_cashflow():
+                    raise RuntimeError("cashflow unavailable")
+
+                with patch("ct_poller.get_ct_all_deals_async", new=AsyncMock(return_value=[])):
+                    with patch("ct_poller.get_ct_all_cash_flows_async", new=AsyncMock(side_effect=_raise_cashflow)):
+                        with patch("ct_data_parser.compute_ct_overview", return_value={"balance": 1000, "equity": 1010, "currency": "USD", "total_profit": 0, "deposits": 0, "withdrawals": 0, "gain_pct": 0, "daily_avg": 0, "monthly_avg": 0, "max_drawdown_pct": 0}) as mocked_compute:
+                            result = await main.overview_endpoint.__wrapped__(SimpleNamespace())
+
+        self.assertIn("balance", result)
+        mocked_compute.assert_called_once()
+
+    async def test_overview_endpoint_uses_ct_when_connected_even_if_broker_state_false(self):
+        with patch.object(main.broker_state, "is_ct", return_value=False):
+            with patch.object(main.ct_client, "is_connected", return_value=True):
+                with patch.object(main.ct_client, "get_snapshot", return_value={"account": {"balance": 500, "equity": 505, "currency": "USD"}}):
+                    with patch("ct_poller.get_ct_all_deals_async", new=AsyncMock(return_value=[])):
+                        with patch("ct_poller.get_ct_all_cash_flows_async", new=AsyncMock(return_value=[])):
+                            with patch("ct_data_parser.compute_ct_overview", return_value={"balance": 500, "equity": 505, "currency": "USD", "total_profit": 0, "deposits": 0, "withdrawals": 0, "gain_pct": 0, "daily_avg": 0, "monthly_avg": 0, "max_drawdown_pct": 0}) as mocked_compute:
+                                result = await main.overview_endpoint.__wrapped__(SimpleNamespace())
+
+        self.assertEqual(result["balance"], 500)
+        mocked_compute.assert_called_once()
+
 
 if __name__ == "__main__":
     unittest.main()

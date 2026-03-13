@@ -5,6 +5,7 @@ let wsReconnectTimer  = null;
 let equityChart       = null;
 let overviewInterval  = null;
 let activeBroker      = 'mt5';   // 'mt5' | 'ctrader'
+let updateCheckTimer  = null;
 
 /* ── Init ────────────────────────────────────────────────────────────────── */
 window.addEventListener('DOMContentLoaded', async () => {
@@ -21,6 +22,8 @@ window.addEventListener('DOMContentLoaded', async () => {
   );
   document.getElementById('logout-btn').addEventListener('click', handleLogout);
   document.getElementById('stats-load-btn').addEventListener('click', loadFullStats);
+  await checkForUpdates();
+  updateCheckTimer = setInterval(checkForUpdates, 10 * 60 * 1000);
 
   // ── Broker tab switching ────────────────────────────────────────────────
   document.querySelectorAll('.broker-tab').forEach(btn => {
@@ -41,6 +44,38 @@ window.addEventListener('DOMContentLoaded', async () => {
   });
   document.getElementById('ct-auth-btn').addEventListener('click', handleCtAuth);
   document.getElementById('ct-connect-btn').addEventListener('click', handleCtConnect);
+
+  // ── Saved cTrader profiles ──────────────────────────────────────────────
+  document.getElementById('ct-remember-checkbox').addEventListener('change', e => {
+    document.getElementById('ct-remember-name-row').classList.toggle('hidden', !e.target.checked);
+  });
+  document.getElementById('ct-saved-logins-select').addEventListener('change', async () => {
+    const name = document.getElementById('ct-saved-logins-select').value;
+    if (name) await applyCtSavedLogin(name);
+  });
+  document.getElementById('ct-saved-del-btn').addEventListener('click', async () => {
+    const name = document.getElementById('ct-saved-logins-select').value;
+    if (!name) { showLoginError('Wybierz profil do usunięcia.'); return; }
+    if (!confirm(`Usunąć zapisany profil „${name}"?`)) return;
+    await deleteCtSavedLogin(name);
+  });
+  await loadCtSavedLogins();
+
+  // ── Saved login profiles ────────────────────────────────────────────────
+  document.getElementById('remember-checkbox').addEventListener('change', e => {
+    document.getElementById('remember-name-row').classList.toggle('hidden', !e.target.checked);
+  });
+  document.getElementById('saved-logins-select').addEventListener('change', async () => {
+    const name = document.getElementById('saved-logins-select').value;
+    if (name) await applySavedLogin(name);
+  });
+  document.getElementById('saved-del-btn').addEventListener('click', async () => {
+    const name = document.getElementById('saved-logins-select').value;
+    if (!name) { showLoginError('Wybierz konto do usunięcia.'); return; }
+    if (!confirm(`Usunąć zapisane konto „${name}"?`)) return;
+    await deleteSavedLogin(name);
+  });
+  await loadSavedLogins();
 
   const stored = sessionStorage.getItem('mt5_token');
   if (stored) {
@@ -66,6 +101,16 @@ async function validateToken(token) {
   } catch { return false; }
 }
 
+function handleAuthExpired() {
+  sessionStorage.removeItem('mt5_token');
+  apiKey = null;
+  activeBroker = 'mt5';
+  disconnectWs();
+  clearInterval(overviewInterval);
+  showLogin();
+  showLoginError('Sesja wygasła. Zaloguj się ponownie.');
+}
+
 async function handleConnect() {
   const login    = document.getElementById('inp-login').value.trim();
   const server   = document.getElementById('inp-server').value.trim();
@@ -87,6 +132,15 @@ async function handleConnect() {
     const data = await res.json();
 
     if (data.ok) {
+      const rememberCb = document.getElementById('remember-checkbox');
+      if (rememberCb.checked) {
+        const rememberName = document.getElementById('remember-name').value.trim()
+          || `${login} · ${server}`;
+        await saveLoginCredentials(rememberName, parseInt(login), server, password);
+        rememberCb.checked = false;
+        document.getElementById('remember-name-row').classList.add('hidden');
+        document.getElementById('remember-name').value = '';
+      }
       apiKey = data.token;
       sessionStorage.setItem('mt5_token', apiKey);
       showDashboard(data);
@@ -111,6 +165,106 @@ async function handleLogout() {
   showLogin();
 }
 
+/* ── Saved login profiles ─────────────────────────────────────────────────── */
+async function loadSavedLogins() {
+  try {
+    const res  = await fetch('/auth/saved-logins');
+    const data = await res.json();
+    const select = document.getElementById('saved-logins-select');
+    select.innerHTML = '<option value="">\uD83D\uDCC2 Wybierz zapisane konto\u2026</option>';
+    data.forEach(entry => {
+      const opt = document.createElement('option');
+      opt.value       = entry.name;
+      opt.textContent = `${entry.name}  (${entry.login} \u00B7 ${entry.server})`;
+      select.appendChild(opt);
+    });
+    document.getElementById('saved-logins-row').classList.toggle('hidden', data.length === 0);
+  } catch { /* server not ready yet — ignore */ }
+}
+
+async function applySavedLogin(name) {
+  try {
+    const res = await fetch(`/auth/saved-logins/${encodeURIComponent(name)}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    document.getElementById('inp-login').value    = data.login;
+    document.getElementById('inp-server').value   = data.server;
+    document.getElementById('inp-password').value = data.password;
+  } catch {}
+}
+
+async function deleteSavedLogin(name) {
+  try {
+    const res = await fetch(`/auth/saved-logins/${encodeURIComponent(name)}`, { method: 'DELETE' });
+    if (res.ok) {
+      await loadSavedLogins();
+      document.getElementById('inp-login').value    = '';
+      document.getElementById('inp-server').value   = '';
+      document.getElementById('inp-password').value = '';
+    }
+  } catch {}
+}
+
+async function saveLoginCredentials(name, login, server, password) {
+  try {
+    await fetch('/auth/saved-logins', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ name, login, server, password }),
+    });
+    await loadSavedLogins();
+  } catch {}
+}
+
+/* ── Saved cTrader profiles ───────────────────────────────────────────────── */
+async function loadCtSavedLogins() {
+  try {
+    const res  = await fetch('/auth/saved-ct-logins');
+    const data = await res.json();
+    const select = document.getElementById('ct-saved-logins-select');
+    select.innerHTML = '<option value="">\uD83D\uDCC2 Wybierz zapisany profil\u2026</option>';
+    data.forEach(entry => {
+      const opt = document.createElement('option');
+      opt.value       = entry.name;
+      opt.textContent = `${entry.name}  (${entry.client_id})`;
+      select.appendChild(opt);
+    });
+    document.getElementById('ct-saved-logins-row').classList.toggle('hidden', data.length === 0);
+  } catch {}
+}
+
+async function applyCtSavedLogin(name) {
+  try {
+    const res = await fetch(`/auth/saved-ct-logins/${encodeURIComponent(name)}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    document.getElementById('ct-client-id').value     = data.client_id;
+    document.getElementById('ct-client-secret').value = data.client_secret;
+  } catch {}
+}
+
+async function deleteCtSavedLogin(name) {
+  try {
+    const res = await fetch(`/auth/saved-ct-logins/${encodeURIComponent(name)}`, { method: 'DELETE' });
+    if (res.ok) {
+      await loadCtSavedLogins();
+      document.getElementById('ct-client-id').value     = '';
+      document.getElementById('ct-client-secret').value = '';
+    }
+  } catch {}
+}
+
+async function saveCtLoginCredentials(name, clientId, clientSecret) {
+  try {
+    await fetch('/auth/saved-ct-logins', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ name, client_id: clientId, client_secret: clientSecret }),
+    });
+    await loadCtSavedLogins();
+  } catch {}
+}
+
 /* ── cTrader auth ─────────────────────────────────────────────────────── */
 async function handleCtAuth() {
   const clientId     = document.getElementById('ct-client-id').value.trim();
@@ -131,6 +285,17 @@ async function handleCtAuth() {
     });
     const data = await res.json();
     if (!data.ok) { showLoginError(data.error || 'Błąd inicjalizacji OAuth'); return; }
+
+    // Save credentials if requested
+    const rememberCb = document.getElementById('ct-remember-checkbox');
+    if (rememberCb.checked) {
+      const rememberName = document.getElementById('ct-remember-name').value.trim()
+        || clientId;
+      await saveCtLoginCredentials(rememberName, clientId, clientSecret);
+      rememberCb.checked = false;
+      document.getElementById('ct-remember-name-row').classList.add('hidden');
+      document.getElementById('ct-remember-name').value = '';
+    }
 
     // Open Spotware login popup
     const popup = window.open(data.auth_url, 'spotware_auth',
@@ -219,6 +384,83 @@ function showLoginError(msg) {
 }
 
 /* ── Screens ─────────────────────────────────────────────────────────────── */
+async function checkForUpdates() {
+  try {
+    const res = await fetch('/api/check-update');
+    if (!res.ok) return;
+
+    const data = await res.json();
+    if (data.update_available) {
+      showUpdateBanner(data.local || 'unknown', data.remote || 'unknown');
+    } else {
+      hideUpdateBanner();
+    }
+  } catch {
+    // Ignore temporary connectivity issues.
+  }
+}
+
+function showUpdateBanner(local, remote) {
+  let banner = document.getElementById('update-banner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'update-banner';
+    banner.className = 'update-banner';
+    document.body.prepend(banner);
+  }
+
+  banner.innerHTML = `
+    <div class="update-banner-text">
+      Dostępna nowa wersja <strong>${escapeHtml(remote)}</strong> (masz ${escapeHtml(local)}).
+    </div>
+    <div class="update-banner-actions">
+      <button id="update-now-btn" class="update-btn-primary">Aktualizuj teraz</button>
+      <button id="update-hide-btn" class="update-btn-secondary">Ukryj</button>
+    </div>
+    <div id="update-status" class="update-banner-status"></div>
+  `;
+
+  banner.querySelector('#update-now-btn')?.addEventListener('click', doUpdate);
+  banner.querySelector('#update-hide-btn')?.addEventListener('click', hideUpdateBanner);
+}
+
+function hideUpdateBanner() {
+  document.getElementById('update-banner')?.remove();
+}
+
+function setUpdateStatus(message, isError = false) {
+  const status = document.getElementById('update-status');
+  if (!status) return;
+  status.textContent = message;
+  status.classList.toggle('error', isError);
+}
+
+async function doUpdate() {
+  const btn = document.getElementById('update-now-btn');
+  if (!btn) return;
+
+  btn.disabled = true;
+  btn.textContent = 'Aktualizacja...';
+  setUpdateStatus('Pobieram najnowsze zmiany...');
+
+  try {
+    const res = await fetch('/api/update', { method: 'POST' });
+    const data = await res.json();
+
+    if (data.success) {
+      setUpdateStatus('Aktualizacja zakończona. Odświeżam aplikację...');
+      setTimeout(() => location.reload(), 700);
+      return;
+    }
+    setUpdateStatus(data.output || 'Aktualizacja nie powiodła się.', true);
+  } catch {
+    setUpdateStatus('Błąd podczas łączenia z API aktualizacji.', true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Aktualizuj teraz';
+  }
+}
+
 function showLogin() {
   document.getElementById('login-screen').classList.remove('hidden');
   document.getElementById('dashboard').classList.add('hidden');
@@ -251,7 +493,18 @@ function initMenuDrawer() {
   const overlay = document.getElementById('menu-overlay');
   const closeBtn = document.getElementById('menu-close-btn');
 
-  function openDrawer()  { drawer.classList.remove('hidden'); overlay.classList.remove('hidden'); }
+  function openDrawer()  {
+    drawer.classList.remove('hidden');
+    overlay.classList.remove('hidden');
+    // Show CT account switcher only when cTrader is active
+    const ctSection = document.getElementById('ct-switch-section');
+    if (activeBroker === 'ctrader') {
+      ctSection.classList.remove('hidden');
+      loadCtAccountsForSwitch();
+    } else {
+      ctSection.classList.add('hidden');
+    }
+  }
   function closeDrawer() { drawer.classList.add('hidden');    overlay.classList.add('hidden'); }
 
   btn?.addEventListener('click', openDrawer);
@@ -402,14 +655,86 @@ function initMenuDrawer() {
       applyPanelVisibility(id, panelId, checkbox.checked);
     });
   });
+
+  // ── cTrader account switcher ───────────────────────────────────────────
+  document.getElementById('ct-switch-btn').addEventListener('click', handleCtSwitchAccount);
+}
+
+/* ── cTrader account switcher ────────────────────────────────────────────── */
+async function loadCtAccountsForSwitch() {
+  const select = document.getElementById('ct-switch-select');
+  const status = document.getElementById('ct-switch-status');
+  select.innerHTML = '<option value="">Ładowanie…</option>';
+  status.className = 'ct-switch-status hidden';
+  try {
+    const res  = await fetch('/auth/ctrader/accounts', { headers: { 'X-API-Key': apiKey } });
+    const data = await res.json();
+    if (!data.ok || !data.accounts?.length) {
+      select.innerHTML = '<option value="">Brak dostępnych kont</option>';
+      return;
+    }
+    select.innerHTML = data.accounts.map(a =>
+      `<option value="${a.id}" data-is-live="${a.is_live ? '1' : '0'}">${a.broker} — ${a.id} (${a.is_live ? 'LIVE' : 'DEMO'})</option>`
+    ).join('');
+  } catch {
+    select.innerHTML = '<option value="">Błąd ładowania kont</option>';
+  }
+}
+
+async function handleCtSwitchAccount() {
+  const select  = document.getElementById('ct-switch-select');
+  const btn     = document.getElementById('ct-switch-btn');
+  const status  = document.getElementById('ct-switch-status');
+  const accountId = parseInt(select.value);
+  const selected  = select.options[select.selectedIndex];
+  const isLive    = (selected?.dataset?.isLive || '0') === '1';
+  if (!accountId) return;
+
+  btn.disabled    = true;
+  btn.textContent = 'Przełączanie…';
+  status.className = 'ct-switch-status hidden';
+
+  try {
+    const res  = await fetch('/auth/ctrader/switch-account', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey },
+      body:    JSON.stringify({ account_id: accountId, is_live: isLive }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      setText('account-name',   data.name   || '—');
+      setText('account-server', `${data.server || '—'} · ${data.currency || ''}`);
+      status.textContent = '✓ Konto zmienione';
+      status.className   = 'ct-switch-status ok';
+      // Reload overview data for the new account
+      await Promise.all([loadOverview(), loadEquityCurve(), loadFullStats()]);
+      loadCalendar();
+    } else {
+      status.textContent = data.error || 'Błąd przełączania konta';
+      status.className   = 'ct-switch-status error';
+    }
+  } catch {
+    status.textContent = 'Nie można połączyć z serwerem';
+    status.className   = 'ct-switch-status error';
+  } finally {
+    btn.disabled    = false;
+    btn.textContent = 'Przełącz konto';
+  }
 }
 
 /* ── Overview stats ──────────────────────────────────────────────────────── */
 async function loadOverview() {
   try {
     const res  = await fetch('/overview', { headers: { 'X-API-Key': apiKey } });
+    if (res.status === 401) {
+      handleAuthExpired();
+      return;
+    }
     const data = await res.json();
-    if (!res.ok || data.error) return;
+    if (!res.ok || data.error) {
+      await loadOverviewFallback();
+      return;
+    }
     const cur = data.currency || '';
 
     setText('top-equity', fmtMoney(data.equity, cur));
@@ -441,7 +766,41 @@ async function loadOverview() {
     profEl.textContent = `${fmtPnl(data.total_profit)} ${cur}`;
     profEl.className   = `stat-value ${cls(data.total_profit)}`;
 
-  } catch {}
+  } catch {
+    await loadOverviewFallback();
+  }
+}
+
+async function loadOverviewFallback() {
+  try {
+    const res = await fetch('/snapshot', { headers: { 'X-API-Key': apiKey } });
+    if (res.status === 401) {
+      handleAuthExpired();
+      return;
+    }
+    if (!res.ok) return;
+    const data = await res.json();
+    const account = data.account || {};
+    const cur = account.currency || '';
+    const bal = Number(account.balance || 0);
+    const eq = Number(account.equity || bal);
+    const fallbackGrowth = bal > 0 ? ((eq - bal) / bal) * 100 : 0;
+
+    setText('top-equity', fmtMoney(eq, cur));
+    setText('top-deposit', fmtMoney(bal, cur));
+    setText('top-withdrawals', `${fmtMoney(0, cur)}`);
+
+    const gEl = document.getElementById('top-growth');
+    if (gEl) {
+      gEl.textContent = fmtPct(fallbackGrowth);
+      gEl.className = `card-value ${cls(fallbackGrowth)}`;
+    }
+
+    setText('s-balance', fmtMoney(bal, cur));
+    setText('s-equity-sb', fmtMoney(eq, cur));
+  } catch {
+    // no-op
+  }
 }
 
 /* ── Full equity curve ───────────────────────────────────────────────────── */
@@ -449,6 +808,10 @@ async function loadEquityCurve() {
   try {
     setText('chart-pts', 'Ładowanie…');
     const res    = await fetch('/equity-curve', { headers: { 'X-API-Key': apiKey } });
+    if (res.status === 401) {
+      handleAuthExpired();
+      return;
+    }
     const points = await res.json();
     if (!Array.isArray(points) || !points.length) { setText('chart-pts', 'Brak historii'); return; }
 
@@ -458,12 +821,29 @@ async function loadEquityCurve() {
       return d.toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit', year: '2-digit' });
     });
     const values = points.map(p => p.balance);
-    const up = values[values.length - 1] >= values[0];
+    const baseline = values[0];
 
-    equityChart.data.labels              = labels;
-    equityChart.data.datasets[0].data    = values;
-    equityChart.data.datasets[0].borderColor      = up ? '#3fb950' : '#f85149';
-    equityChart.data.datasets[0].backgroundColor  = up ? 'rgba(63,185,80,0.07)' : 'rgba(248,81,73,0.07)';
+    // Per-segment colors: green above baseline, red below
+    const segColor = (y0, y1) => ((y0 + y1) / 2) >= baseline ? '#3fb950' : '#f85149';
+    const segBg    = (y0, y1) => ((y0 + y1) / 2) >= baseline
+      ? 'rgba(63,185,80,0.09)' : 'rgba(248,81,73,0.09)';
+
+    equityChart.data.labels           = labels;
+    equityChart.data.datasets[0].data = values;
+    equityChart.data.datasets[0].borderColor     = '#3fb950'; // fallback
+    equityChart.data.datasets[0].backgroundColor = 'rgba(63,185,80,0.09)';
+    equityChart.data.datasets[0].segment = {
+      borderColor:     ctx => segColor(ctx.p0.parsed.y, ctx.p1.parsed.y),
+      backgroundColor: ctx => segBg(ctx.p0.parsed.y, ctx.p1.parsed.y),
+    };
+
+    // Horizontal baseline reference line
+    equityChart.options.plugins.annotation = undefined; // no annotation plugin needed
+    equityChart.options.scales.y.grid.color = ctx =>
+      ctx.tick.value === baseline
+        ? 'rgba(180,180,180,0.35)'
+        : 'rgba(128,128,128,0.12)';
+
     equityChart.update('none');
   } catch {}
 }
@@ -481,8 +861,9 @@ function initChart() {
     type: 'line',
     data: { labels: [], datasets: [{
       label: 'Balance / Equity', data: [],
-      borderColor: '#3fb950', backgroundColor: 'rgba(63,185,80,0.07)',
+      borderColor: '#3fb950', backgroundColor: 'rgba(63,185,80,0.09)',
       borderWidth: 2, pointRadius: 0, tension: 0.3, fill: true,
+      segment: {},
     }]},
     options: {
       responsive: true, maintainAspectRatio: false, animation: false,
@@ -506,7 +887,17 @@ function connectWs() {
   ws = new WebSocket(`${proto}://${location.host}/ws/live?key=${encodeURIComponent(apiKey)}`);
   ws.onopen    = () => { setWsDot(true);  clearTimeout(wsReconnectTimer); };
   ws.onmessage = ({ data }) => { try { renderSnapshot(JSON.parse(data)); } catch {} };
-  ws.onclose   = () => { setWsDot(false); wsReconnectTimer = setTimeout(connectWs, 3000); };
+  ws.onclose   = () => {
+    setWsDot(false);
+    if (!apiKey) return;
+    validateToken(apiKey).then(ok => {
+      if (!ok) {
+        handleAuthExpired();
+        return;
+      }
+      wsReconnectTimer = setTimeout(connectWs, 3000);
+    });
+  };
   ws.onerror   = () => ws.close();
 }
 function disconnectWs() {
@@ -574,6 +965,10 @@ async function loadFullStats() {
 
   try {
     const res = await fetch(`/statistics/full?days=${days}`, { headers: { 'X-API-Key': apiKey } });
+    if (res.status === 401) {
+      handleAuthExpired();
+      return;
+    }
     const d   = await res.json();
 
     if (d.error) { content.innerHTML = `<p class="empty">${d.error}</p>`; return; }
@@ -671,6 +1066,14 @@ function setText(id, val) {
   const el = document.getElementById(id);
   if (el) el.textContent = val != null ? val : '—';
 }
+function escapeHtml(val) {
+  return String(val)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
 function fmtDate(iso) {
   if (!iso) return '—';
   const d = new Date(iso.endsWith('Z') ? iso : iso + 'Z');
@@ -698,6 +1101,10 @@ async function loadCalendar() {
 
   try {
     const res  = await fetch(`/calendar?year=${calYear}&month=${calMonth}`, { headers: { 'X-API-Key': apiKey } });
+    if (res.status === 401) {
+      handleAuthExpired();
+      return;
+    }
     const data = await res.json();
     if (!res.ok) { renderCalendarError(); return; }
     renderCalendar(calYear, calMonth, data);
@@ -780,7 +1187,7 @@ function renderWeekCell(weekNum, data) {
     <div class="cal-cell cal-week-cell ${colorCls}">
       <span class="cal-week-label">Tydz. ${weekNum}</span>
       <span class="cal-pnl ${pnlClr}">${days > 0 ? pnlStr : '€0,00'}</span>
-      <span class="cal-meta">${days} dzień/dni</span>
+      <span class="cal-meta">${days} ${days === 1 ? 'dzień' : 'dni'}</span>
     </div>
   `;
 }

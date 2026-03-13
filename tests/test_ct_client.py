@@ -83,6 +83,17 @@ class ProtoOAGetAccountListByAccessTokenRes(_PayloadTypeMessage):
     payload_type = 108
 
 
+class ProtoOACashFlowHistoryListReq:
+    def __init__(self):
+        self.ctidTraderAccountId = None
+        self.fromTimestamp = None
+        self.toTimestamp = None
+
+
+class ProtoOACashFlowHistoryListRes(_PayloadTypeMessage):
+    payload_type = 109
+
+
 def install_fake_ctrader_modules(mode):
     reactor_module = types.ModuleType("twisted.internet")
 
@@ -114,6 +125,8 @@ def install_fake_ctrader_modules(mode):
         "ProtoOAErrorRes": ProtoOAErrorRes,
         "ProtoOAGetAccountListByAccessTokenReq": ProtoOAGetAccountListByAccessTokenReq,
         "ProtoOAGetAccountListByAccessTokenRes": ProtoOAGetAccountListByAccessTokenRes,
+        "ProtoOACashFlowHistoryListReq": ProtoOACashFlowHistoryListReq,
+        "ProtoOACashFlowHistoryListRes": ProtoOACashFlowHistoryListRes,
     }.items():
         setattr(pb2_module, name, obj)
 
@@ -175,6 +188,11 @@ def install_fake_ctrader_modules(mode):
                     ]
                 )
                 self.callbacks[ProtoOAGetAccountListByAccessTokenRes().payloadType](self, payload)
+                return
+
+            if isinstance(req, ProtoOACashFlowHistoryListReq):
+                payload = types.SimpleNamespace(depositWithdraw=[])
+                self.callbacks[ProtoOACashFlowHistoryListRes().payloadType](self, payload)
 
     ctrader_module.Client = FakeClient
     ctrader_module.TcpProtocol = object()

@@ -142,6 +142,7 @@ def connect(client_id: str, client_secret: str,
                 ProtoOASymbolsListReq,     ProtoOASymbolsListRes,
                 ProtoOAReconcileReq,       ProtoOAReconcileRes,
                 ProtoOATraderReq,          ProtoOATraderRes,
+                ProtoOACashFlowHistoryListRes,
                 ProtoOASubscribeSpotsReq,
                 ProtoOASpotEvent,
                 ProtoOADealListRes,
@@ -265,6 +266,14 @@ def connect(client_id: str, client_secret: str,
                     if not msg.hasMore:
                         _deal_pending[corr_id]["event"].set()
 
+            # ── Cashflow list response (correlated by clientMsgId) ─────────
+            def on_cashflow_list_res(client, message):
+                msg = Protobuf.extract(message)
+                corr_id = message.clientMsgId
+                if corr_id in _cashflow_pending:
+                    _cashflow_pending[corr_id]["items"].extend(list(msg.depositWithdraw))
+                    _cashflow_pending[corr_id]["event"].set()
+
             # ── Register all callbacks ────────────────────────────────────────
             callbacks = {
                 ProtoOAApplicationAuthRes().payloadType: on_app_auth_res,
@@ -274,6 +283,7 @@ def connect(client_id: str, client_secret: str,
                 ProtoOAReconcileRes().payloadType:       on_reconcile_res,
                 ProtoOASpotEvent().payloadType:          on_spot_event,
                 ProtoOADealListRes().payloadType:        on_deal_list_res,
+                ProtoOACashFlowHistoryListRes().payloadType: on_cashflow_list_res,
                 ProtoOAErrorRes().payloadType:           on_error,
             }
             client.setConnectedCallback(on_connected)
@@ -343,6 +353,7 @@ def get_equity_history() -> list:
 # ── Deal list fetcher ─────────────────────────────────────────────────────────
 
 _deal_pending: Dict[str, Any] = {}   # corr_id → {"event": Event, "deals": list}
+_cashflow_pending: Dict[str, Any] = {}  # corr_id → {"event": Event, "items": list}
 
 
 def get_accounts_by_token(
@@ -471,6 +482,38 @@ def fetch_deals(from_ts_ms: int, to_ts_ms: int, max_rows: int = 10000) -> list:
     reactor.callFromThread(_send)
     ev.wait(timeout=30.0)
     return _deal_pending.pop(corr_id, {}).get("deals", [])
+
+
+def fetch_cash_flows(from_ts_ms: int, to_ts_ms: int) -> list:
+    """
+    Blocking call — fetches account cashflow history (deposits/withdrawals).
+    Returns list of ProtoOADepositWithdraw objects.
+    """
+    import uuid
+    if not _connected or _client is None:
+        return []
+
+    corr_id = uuid.uuid4().hex
+    ev = Event()
+    _cashflow_pending[corr_id] = {"event": ev, "items": []}
+
+    def _send():
+        try:
+            from ctrader_open_api.messages.OpenApiMessages_pb2 import ProtoOACashFlowHistoryListReq
+            req = ProtoOACashFlowHistoryListReq()
+            req.ctidTraderAccountId = _account_id
+            req.fromTimestamp = from_ts_ms
+            req.toTimestamp = to_ts_ms
+            _client.send(req, clientMsgId=corr_id)
+        except Exception as exc:
+            logger.error(f"CT fetch_cash_flows send error: {exc}")
+            _cashflow_pending.pop(corr_id, None)
+            ev.set()
+
+    from twisted.internet import reactor
+    reactor.callFromThread(_send)
+    ev.wait(timeout=8.0)
+    return _cashflow_pending.pop(corr_id, {}).get("items", [])
 
 
 # ── Internal polling ──────────────────────────────────────────────────────────

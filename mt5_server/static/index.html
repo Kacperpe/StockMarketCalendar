@@ -8,45 +8,95 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Trading Monitor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,100..900;1,100..900&display=swap">
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
 
-  <!-- ── Login ─────────────────────────────────────────────── -->
+  <!-- Login -->
   <div id="login-screen" class="screen">
     <div class="login-card">
-      <div class="login-logo">📈 Trading Monitor</div>
+      <div class="login-logo">Trading Monitor</div>
 
       <!-- Broker tabs -->
       <div class="broker-tabs">
-        <button class="broker-tab active" data-broker="mt5">📊 MT5</button>
-        <button class="broker-tab" data-broker="ctrader">📈 cTrader</button>
+        <button class="broker-tab active" data-broker="mt5">MT5</button>
+        <button class="broker-tab" data-broker="ctrader">cTrader</button>
       </div>
 
       <!-- MT5 form -->
       <div id="form-mt5">
         <p class="login-sub">Podaj dane konta MT5 aby się połączyć</p>
+        <img class="login-broker-image" src="/static/imagemt5.webp" alt="Logowanie MetaTrader 5">
+
+        <!-- Saved logins dropdown (hidden until at least one profile exists) -->
+        <div id="saved-logins-row" class="saved-logins-section hidden">
+          <div class="saved-select-row">
+            <select id="saved-logins-select" class="saved-logins-select">
+              <option value="">📂 Wybierz zapisane konto…</option>
+            </select>
+            <button type="button" id="saved-del-btn" class="saved-del-btn" title="Usuń zapisane konto">✕</button>
+          </div>
+        </div>
+
         <input id="inp-login" type="number" placeholder="Numer konta (Login)" autocomplete="off">
+        <div class="field-sep"></div>
         <div class="key-wrap">
           <input id="inp-password" type="password" placeholder="Hasło (Investor / Readonly)" autocomplete="off">
-          <button id="show-pass-btn" type="button" class="show-key">👁</button>
+          <button id="show-pass-btn" type="button" class="show-key">Pokaż</button>
         </div>
+        <div class="field-sep"></div>
         <input id="inp-server" type="text" placeholder="Serwer (np. FTMO-Demo)" autocomplete="off">
+
+        <!-- Remember credentials -->
+        <label class="remember-row">
+          <input type="checkbox" id="remember-checkbox">
+          <span>Zapamiętaj dane logowania</span>
+        </label>
+        <div id="remember-name-row" class="hidden">
+          <input id="remember-name" type="text" placeholder="Nazwa konta (np. FTMO Demo 1)" autocomplete="off">
+        </div>
+
         <button id="connect-btn">Połącz z MT5</button>
       </div>
 
       <!-- cTrader form -->
       <div id="form-ct" class="hidden">
         <p class="login-sub">Autoryzuj przez Spotware OAuth2</p>
+        <img class="login-broker-image" src="/static/imagectrader.webp" alt="Logowanie cTrader">
+
+        <!-- Saved cTrader profiles dropdown -->
+        <div id="ct-saved-logins-row" class="saved-logins-section hidden">
+          <div class="saved-select-row">
+            <select id="ct-saved-logins-select" class="saved-logins-select">
+              <option value="">📂 Wybierz zapisany profil…</option>
+            </select>
+            <button type="button" id="ct-saved-del-btn" class="saved-del-btn" title="Usuń zapisany profil">✕</button>
+          </div>
+        </div>
+
         <input id="ct-client-id" type="text" placeholder="Client ID" autocomplete="off">
+        <div class="field-sep"></div>
         <div class="key-wrap">
           <input id="ct-client-secret" type="password" placeholder="Client Secret" autocomplete="off">
-          <button id="ct-show-secret" type="button" class="show-key">👁</button>
+          <button id="ct-show-secret" type="button" class="show-key">Pokaż</button>
         </div>
+
+        <!-- Remember credentials -->
+        <label class="remember-row">
+          <input type="checkbox" id="ct-remember-checkbox">
+          <span>Zapamiętaj dane logowania</span>
+        </label>
+        <div id="ct-remember-name-row" class="hidden">
+          <input id="ct-remember-name" type="text" placeholder="Nazwa profilu (np. Mój cTrader)" autocomplete="off">
+        </div>
+
         <button id="ct-auth-btn">Autoryzuj przez Spotware</button>
 
         <div id="ct-account-row" class="hidden">
-          <p class="login-sub" style="margin-top:12px">✅ Wybierz konto:</p>
+          <p class="login-sub" style="margin-top:12px">Wybierz konto:</p>
           <select id="ct-account-list" class="ct-account-select"></select>
           <button id="ct-connect-btn">Połącz z cTrader</button>
         </div>
@@ -56,12 +106,12 @@
     </div>
   </div>
 
-  <!-- ── Dashboard ─────────────────────────────────────────── -->
+  <!-- Dashboard -->
   <div id="dashboard" class="screen hidden">
 
     <header>
       <div class="header-left">
-        <span class="logo">📈 MT5 Monitor</span>
+        <span class="logo">MT5 Monitor</span>
       </div>
       <div class="header-center">
         <span id="account-name">—</span>
@@ -77,7 +127,7 @@
       </div>
     </header>
 
-    <!-- ── Menu drawer ───────────────────────────────────────── -->
+    <!-- Menu drawer -->
     <div id="menu-overlay" class="menu-overlay hidden"></div>
     <div id="menu-drawer" class="menu-drawer hidden">
       <div class="menu-drawer-header">
@@ -86,11 +136,11 @@
       </div>
 
       <div class="menu-section">
-        <div class="menu-section-title">🎨 Motyw</div>
+        <div class="menu-section-title">Motyw</div>
         <div class="theme-btns">
-          <button class="theme-btn" data-theme="dark">⬛ Ciemny</button>
-          <button class="theme-btn" data-theme="light">⬜ Jasny</button>
-          <button class="theme-btn" data-theme="custom">🎨 Własny</button>
+          <button class="theme-btn" data-theme="dark">Ciemny</button>
+          <button class="theme-btn" data-theme="light">Jasny</button>
+          <button class="theme-btn" data-theme="custom">Własny</button>
         </div>
         <div id="custom-theme-row" class="custom-theme-row hidden">
           <label>Tło<input type="color" id="c-bg" value="#0d1117"></label>
@@ -104,23 +154,35 @@
 
       <div class="menu-divider"></div>
 
+      <!-- cTrader account switcher — visible only when CT is active -->
+      <div id="ct-switch-section" class="menu-section hidden">
+        <div class="menu-section-title">Zmień konto cTrader</div>
+        <select id="ct-switch-select" class="ct-switch-select">
+          <option value="">Ładowanie kont…</option>
+        </select>
+        <button id="ct-switch-btn" class="ct-switch-btn">Przełącz konto</button>
+        <p id="ct-switch-status" class="ct-switch-status hidden"></p>
+      </div>
+
+      <div class="menu-divider"></div>
+
       <div class="menu-section">
-        <div class="menu-section-title">📐 Widoczność paneli</div>
+        <div class="menu-section-title">Widoczność paneli</div>
         <label class="panel-toggle-row">
           <input type="checkbox" id="tog-overview" checked>
-          <span>📊 Statystyki konta &amp; wykres</span>
+          <span>Statystyki konta &amp; wykres</span>
         </label>
         <label class="panel-toggle-row">
           <input type="checkbox" id="tog-positions" checked>
-          <span>📋 Otwarte pozycje</span>
+          <span>Otwarte pozycje</span>
         </label>
         <label class="panel-toggle-row">
           <input type="checkbox" id="tog-stats" checked>
-          <span>📈 Statystyki transakcji</span>
+          <span>Statystyki transakcji</span>
         </label>
         <label class="panel-toggle-row">
           <input type="checkbox" id="tog-calendar" checked>
-          <span>📅 Kalendarz P&amp;L</span>
+          <span>Kalendarz P&amp;L</span>
         </label>
       </div>
     </div>
@@ -192,7 +254,7 @@
         <!-- Wykres equity -->
         <section class="chart-section panel">
           <div class="panel-header">
-            <h2>Equity Curve &nbsp;<span class="muted-sm">pełna historia od pierwszej transakcji</span></h2>
+            <h2>Equity Curve &nbsp;<span class="muted-sm">pełna historia</span></h2>
             <span id="chart-pts" class="muted-sm">Ładowanie…</span>
           </div>
           <div class="chart-wrap-tall">
@@ -251,11 +313,11 @@
           </div>
         </div>
         <div id="stats-content">
-          <p class="empty">Wybierz okres i kliknij „Załaduj" aby wyświetlić statystyki.</p>
+          <p class="empty">Wybierz okres i kliknij „Załaduj”, aby wyświetlić statystyki.</p>
         </div>
       </section>
 
-      <!-- Kalendarz dzienny ─────────────────────────────────────────────── -->
+      <!-- Kalendarz dzienny -->
       <section id="panel-calendar" class="panel calendar-panel">
         <div class="panel-header">
           <h2>Kalendarz P&amp;L</h2>
@@ -278,5 +340,3 @@
   <script src="/static/app.js" defer></script>
 </body>
 </html>
-
-
