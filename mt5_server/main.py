@@ -422,6 +422,13 @@ async def ct_connect(req: CTConnectRequest):
         _poller_task.cancel()
         _poller_task = None
 
+    # Invalidate deal cache so the new account's data is fetched fresh
+    try:
+        from ct_poller import clear_deals_cache
+        clear_deals_cache()
+    except Exception:
+        pass
+
     session_token = create_session()
     snap = ct_client.get_snapshot()
     acct = snap.get("account") or {}
@@ -459,6 +466,13 @@ async def ct_switch_account(req: CTSwitchAccountRequest):
     )
     if not ok:
         return {"ok": False, "error": err}
+
+    # Invalidate deal cache so the switched account's data is fetched fresh
+    try:
+        from ct_poller import clear_deals_cache
+        clear_deals_cache()
+    except Exception:
+        pass
 
     snap = ct_client.get_snapshot()
     acct = snap.get("account") or {}
